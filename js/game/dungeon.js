@@ -203,7 +203,49 @@ function generateDungeon(floorNum, seed) {
     return null;
   }
 
-  // 9) enemies
+  // 9) shop windows. Only walls with a single exposed face qualify, so the
+  // window art is never seen from behind, and each gets a flanking torch.
+  const shops = [];
+  const shopTorches = [];
+  {
+    const shopN = Math.min(1 + Math.floor(floorNum / 2), 3);
+    const kinds = shuffle(rng, ['potion', 'weapon', 'armor']);
+    const cands = [];
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      const c = at(x, y);
+      if (c === 0 || c === T_DOOR || c === T_DOOR_LOCKED) continue;
+      let open = 0, fx = 0, fy = 0, nearDoor = false;
+      for (const [dx, dy] of ADJ) {
+        const nc = at(x + dx, y + dy);
+        if (nc === 0) { open++; fx = x + dx; fy = y + dy; }
+        else if (nc === T_DOOR || nc === T_DOOR_LOCKED) nearDoor = true;
+      }
+      if (open !== 1 || nearDoor) continue;
+      if (dist[fy * w + fx] < 2) continue;            // not right on the entrance
+      if (fx === exit.x && fy === exit.y) continue;   // never blocks the stairs
+      cands.push({ x, y, fx, fy });
+    }
+    shuffle(rng, cands);
+    for (const c of cands) {
+      if (shops.length >= shopN) break;
+      if (shops.some(s => Math.abs(s.x - c.x) + Math.abs(s.y - c.y) < 7)) continue;
+      const kind = kinds[shops.length % kinds.length];
+      set(c.x, c.y, SHOP_TILE[kind]);
+      shops.push({
+        idx: c.y * w + c.x, x: c.x, y: c.y, kind, fx: c.fx, fy: c.fy,
+        stock: makeShopStock(kind, floorNum, rng),
+      });
+      used.add(c.fy * w + c.fx); // keep loot off the counter
+      const ddx = c.x - c.fx, ddy = c.y - c.fy;
+      shopTorches.push({
+        x: c.fx + 0.5 + ddx * 0.36 - ddy * 0.3,
+        y: c.fy + 0.5 + ddy * 0.36 + ddx * 0.3,
+        phase: rng() * 10,
+      });
+    }
+  }
+
+  // 10) enemies
   const spawns = [];
   const ratN = BALANCE.rats(floorNum);
   const skelN = BALANCE.skeletons(floorNum);
@@ -218,16 +260,21 @@ function generateDungeon(floorNum, seed) {
   addEnemy('skeleton', skelN, 8);
   addEnemy('wraith', wraithN, 10);
 
-  // 10) items
+  // 11) items
   const items = [];
   const potN = BALANCE.potions(floorNum);
-  for (let i = 0; i < potN; i++) { const c = freeCell(4); if (c) items.push({ type: 'potion', x: c.x + 0.5, y: c.y + 0.5 }); }
+  for (let i = 0; i < potN; i++) {
+    const c = freeCell(4);
+    if (!c) continue;
+    const blue = floorNum >= 3 && rng() < 0.3;
+    items.push({ type: 'item', item: blue ? 'potionBlue' : 'potionRed', x: c.x + 0.5, y: c.y + 0.5 });
+  }
   const goldN = BALANCE.goldPiles(floorNum);
   for (let i = 0; i < goldN; i++) { const c = freeCell(3); if (c) items.push({ type: 'gold', x: c.x + 0.5, y: c.y + 0.5 }); }
   if (keyPos) items.push({ type: 'key', x: keyPos.x + 0.5, y: keyPos.y + 0.5 });
   if (floorNum === CROWN_FLOOR) items.push({ type: 'crown', x: exit.x + 0.5, y: exit.y + 0.5 });
 
-  // 11) torches: floor cells adjacent to a wall, offset toward the wall face
+  // 12) torches: floor cells adjacent to a wall, offset toward the wall face
   const torches = [];
   const torchMax = Math.floor(w * h / 26);
   for (let y = 1; y < h - 1 && torches.length < torchMax; y++) {
@@ -242,9 +289,10 @@ function generateDungeon(floorNum, seed) {
       torches.push({ x: x + 0.5 + dx * 0.38, y: y + 0.5 + dy * 0.38, phase: rng() * 10 });
     }
   }
+  torches.push(...shopTorches); // shop lamps are never trimmed by the cap
 
   return {
-    w, h, map, doors, start, exit, spawns, items, torches,
+    w, h, map, doors, start, exit, spawns, items, torches, shops,
     tiles: TILE_DEFS,
     floorNum,
     name: levelName(floorNum, rng),

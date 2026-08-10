@@ -2,12 +2,20 @@
 'use strict';
 
 function newPlayer() {
-  return {
+  const p = {
     x: 0, y: 0, a: 0,
-    hp: 100, maxHp: 100, gold: 0, keys: 0, floor: 1,
+    hp: 100, maxHp: 100,
+    mp: START_KIT.mp, maxMp: START_KIT.mp,
+    gold: 0, keys: 0, floor: 1,
     attackT: 0, attackHitDone: false, atkCd: 0,
     bobPhase: 0, moving: false, stepAcc: 0,
+    inv: newInventory(),
+    equip: { weapon: null, armor: null, ammo: null },
   };
+  invAdd(p.inv, START_KIT.weapon, 1);
+  invAdd(p.inv, 'potionRed', START_KIT.potions);
+  equipItem(p, START_KIT.weapon);
+  return p;
 }
 
 // is a movement binding held?
@@ -17,24 +25,45 @@ function held(name) { return Input.anyDown(KEYS[name]); }
 function startAttack() {
   const p = G.player;
   if (p.atkCd > 0) return;
-  p.atkCd = 0.42;
-  p.attackT = 0.32;
+  const w = weaponDef(p);
+  if (!w) { addMsg('YOU HAVE NOTHING TO FIGHT WITH'); return; }
+
+  if (w.wclass === 'bow') {
+    if (ammoCount(p) <= 0) p.equip.ammo = bestArrow(p);
+    if (ammoCount(p) <= 0) { addMsg('YOUR QUIVER IS EMPTY'); SFX.denied(); p.atkCd = 0.3; return; }
+  }
+  if (w.wclass === 'staff' && p.mp < w.mana) { addMsg('NOT ENOUGH MANA'); SFX.denied(); p.atkCd = 0.3; return; }
+
+  p.atkCd = w.cd;
+  p.attackT = w.swing;
   p.attackHitDone = false;
-  SFX.swing();
+  if (w.wclass === 'melee') SFX.swing();
+  else if (w.wclass === 'bow') SFX.bowDraw();
+  else SFX.castCharge();
 }
 
-function doAttackHit() {
+// fired once per swing, at the weapon's hitAt mark
+function resolveAttack() {
+  const p = G.player;
+  const w = weaponDef(p);
+  if (!w) return;
+  if (w.wclass === 'bow') return looseArrow(w);
+  if (w.wclass === 'staff') return castBolt(w);
+  return doMeleeHit(w);
+}
+
+function doMeleeHit(w) {
   const p = G.player;
   const dirX = Math.cos(p.a), dirY = Math.sin(p.a);
   let hit = false;
   for (const e of G.enemies) {
     const dx = e.x - p.x, dy = e.y - p.y;
     const d = Math.hypot(dx, dy);
-    if (d > 1.5) continue;
+    if (d > w.reach) continue;
     const dot = (dx / d) * dirX + (dy / d) * dirY;
     if (dot < 0.75 && d > 0.6) continue;
     if (!lineOfSight(G.level, p.x, p.y, e.x, e.y)) continue;
-    e.hp -= 22 + Math.random() * 8;
+    e.hp -= w.dmg + Math.random() * w.vary;
     e.painT = 0.18;
     e.state = 'chase';
     // knockback
@@ -44,13 +73,47 @@ function doAttackHit() {
   if (hit) SFX.hit();
 }
 
-function useDoor() {
+function looseArrow(w) {
+  const p = G.player;
+  const id = p.equip.ammo;
+  const a = itemDef(id);
+  if (!a || invRemoveId(p.inv, id, 1) < 1) { addMsg('YOUR QUIVER IS EMPTY'); return; }
+  syncEquipment(p);
+  spawnProjectile('arrow', a.shot, p.x + Math.cos(p.a) * 0.35, p.y + Math.sin(p.a) * 0.35,
+    p.a, a.dmg + w.dmg, a.vary + w.vary);
+  SFX.bowLoose();
+}
+
+function castBolt(w) {
+  const p = G.player;
+  if (p.mp < w.mana) return;
+  p.mp -= w.mana;
+  spawnProjectile('bolt', 'shot_bolt', p.x + Math.cos(p.a) * 0.35, p.y + Math.sin(p.a) * 0.35,
+    p.a, w.dmg, w.vary);
+  SFX.castBolt();
+}
+
+// the shop a wall cell belongs to, or null
+function shopAtCell(lvl, x, y) {
+  if (!lvl.shops) return null;
+  const idx = (y | 0) * lvl.w + (x | 0);
+  return lvl.shops.find(s => s.idx === idx) || null;
+}
+
+// E: open the door or lean into the shop window ahead of the player
+function useFront() {
   const p = G.player;
   const lvl = G.level;
-  const fx = p.x + Math.cos(p.a) * 0.9, fy = p.y + Math.sin(p.a) * 0.9;
-  const candidates = [[fx, fy], [p.x + Math.cos(p.a) * 1.4, p.y + Math.sin(p.a) * 1.4]];
-  for (const [cx, cy] of candidates) {
+  for (const reach of [0.9, 1.4]) {
+    const cx = p.x + Math.cos(p.a) * reach, cy = p.y + Math.sin(p.a) * reach;
     const c = cellAt(lvl, cx, cy);
+
+    if (shopKindAt(c)) {
+      const shop = shopAtCell(lvl, cx, cy);
+      if (shop && (p.x | 0) === shop.fx && (p.y | 0) === shop.fy) { openShop(shop); return; }
+      continue;
+    }
+
     if (c !== T_DOOR && c !== T_DOOR_LOCKED) continue;
     const idx = (cy | 0) * lvl.w + (cx | 0);
     const d = lvl.doors[idx];
@@ -105,12 +168,16 @@ function updatePlay(dt) {
   // attack timeline
   if (p.atkCd > 0) p.atkCd -= dt;
   if (p.attackT > 0) {
+    const w = weaponDef(p);
     p.attackT -= dt;
-    if (!p.attackHitDone && p.attackT < 0.2) {
+    if (!p.attackHitDone && p.attackT < (w ? w.hitAt : 0.2)) {
       p.attackHitDone = true;
-      doAttackHit();
+      resolveAttack();
     }
   }
+
+  // mana trickles back on its own; blue draughts are for emergencies
+  if (p.mp < p.maxMp) p.mp = Math.min(p.maxMp, p.mp + MANA_REGEN * dt);
 
   // doors animate
   for (const k in lvl.doors) {
@@ -133,13 +200,28 @@ function updatePlay(dt) {
     it.bob += dt * 3;
     const d = Math.hypot(it.x - p.x, it.y - p.y);
     if (d < 0.55) {
-      if (it.type === 'potion') {
-        if (p.hp >= p.maxHp) continue;
-        p.hp = Math.min(p.maxHp, p.hp + 30);
-        addMsg('YOU DRINK THE CRIMSON DRAUGHT. +30');
-        SFX.pickupPotion();
+      if (it.type === 'item') {
+        const def = ITEMS[it.item];
+        if (!def) { G.items.splice(i, 1); continue; }
+        if (invRoomFor(p.inv, it.item, 1)) {
+          invAdd(p.inv, it.item, 1);
+          if (def.kind === 'ammo' && !p.equip.ammo) equipItem(p, it.item);
+          addMsg('PICKED UP ' + def.name);
+          SFX.pickupItem();
+        } else if (def.heal && p.hp < p.maxHp) {
+          p.hp = Math.min(p.maxHp, p.hp + def.heal);
+          addMsg('PACK FULL - YOU DRINK IT. +' + def.heal);
+          SFX.pickupPotion();
+        } else if (def.mana && p.mp < p.maxMp) {
+          p.mp = Math.min(p.maxMp, p.mp + def.mana);
+          addMsg('PACK FULL - YOU DRINK IT. +' + def.mana);
+          SFX.pickupMana();
+        } else {
+          if (!it.warned) { addMsg('YOUR PACK IS FULL'); it.warned = true; }
+          continue; // leave it lying there
+        }
       } else if (it.type === 'gold') {
-        const v = 8 + ((Math.random() * 18) | 0);
+        const v = ECONOMY.pileMin + ((Math.random() * ECONOMY.pileVary) | 0);
         p.gold += v;
         addMsg('PICKED UP ' + v + ' GOLD');
         SFX.pickupGold();
@@ -171,6 +253,7 @@ function updatePlay(dt) {
   }
 
   updateEnemies(dt);
+  updateProjectiles(dt);
 
   if (G.hurtT > 0) G.hurtT -= dt;
   if (G.shakeT > 0) G.shakeT -= dt;
@@ -229,7 +312,7 @@ function updateEnemies(dt) {
       e.atkT -= dt;
       if (e.atkT <= 0) {
         if (d < st.range + 0.35) {
-          p.hp -= st.dmg * (0.8 + Math.random() * 0.4);
+          p.hp -= st.dmg * (0.8 + Math.random() * 0.4) * (1 - armorSoak(p));
           G.hurtT = 0.35;
           G.shakeT = 0.25;
           SFX.enemyHitPlayer();

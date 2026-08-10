@@ -2,7 +2,7 @@
 'use strict';
 
 const SPRITES = {}; // name -> array of {w,h,data:Uint32Array}
-const WEAPON_FRAMES = []; // canvases for first-person sword overlay
+const WEAPON_FRAMES = {}; // fp name -> 4 canvases for the first-person overlay
 
 // tiny drawing kit on a 2d ctx (1 unit = 1 pixel)
 function P(ctx) {
@@ -153,13 +153,111 @@ function drawWraith(ctx, p, pose) {
 
 // ---------------- items & props ----------------
 
-function drawPotion(ctx, p) {
-  p.disc(8, 11, 3.6, '#5a0a12');
-  p.disc(8, 10.6, 3, '#c0182a');
-  p.px(7, 9, '#ff8090');
+function drawPotion(ctx, p, pal) {
+  pal = pal || { dark: '#5a0a12', body: '#c0182a', shine: '#ff8090' };
+  p.disc(8, 11, 3.6, pal.dark);
+  p.disc(8, 10.6, 3, pal.body);
+  p.px(7, 9, pal.shine);
   p.rect(7, 4, 3, 4, '#7a4a2a'); // neck
   p.rect(6, 3, 5, 2, '#9a6a3a'); // cork
   p.rect(6, 7, 5, 1, '#3a3a44'); // band
+}
+
+// ---------------- gear icons ----------------
+
+const BLADE_PAL = {
+  bronze: { dark: '#6a4a1c', mid: '#b08840', hi: '#e8c878', guard: '#7a5a18', grip: '#5a3a20', pommel: '#c9a428' },
+  iron:   { dark: '#5a6070', mid: '#9aa2b0', hi: '#d8e0ea', guard: '#6a6250', grip: '#4a3428', pommel: '#8a8270' },
+  steel:  { dark: '#7a828e', mid: '#c9d2dc', hi: '#eef2f6', guard: '#8a6a14', grip: '#5a3a20', pommel: '#c9a428' },
+};
+
+const HEAD_PAL = { bronze: '#c08840', iron: '#a8b0bc', steel: '#e0e8f0' };
+
+function drawSwordIcon(ctx, p, pal) {
+  p.line(3, 13, 13, 3, pal.dark, 4);
+  p.line(3, 13, 13, 3, pal.mid, 2);
+  p.line(4, 12, 12, 4, pal.hi, 1);
+  p.px(13, 2, pal.hi);
+  p.line(1, 9, 6, 14, pal.guard, 2);   // crossguard
+  p.line(0, 12, 3, 15, pal.grip, 3);   // grip
+  p.px(0, 15, pal.pommel);
+}
+
+function drawBowIcon(ctx, p) {
+  const W1 = '#7a4e22', W2 = '#a87038';
+  for (let i = 0; i <= 22; i++) {
+    const t = i / 22, a = (-0.85 + t * 1.7);
+    const x = 11 - Math.cos(a) * 6.5, y = 8 + Math.sin(a) * 7.5;
+    p.px(x, y, W1); p.px(x - 1, y, W2);
+  }
+  p.line(9.5, 1, 9.5, 15, '#d8d0bc', 1); // string
+  p.line(2, 8, 13, 8, '#8a7a5a', 1);     // nocked arrow
+  p.line(11, 8, 14, 8, HEAD_PAL.iron, 1);
+  p.px(3, 7, '#c8c0b0'); p.px(3, 9, '#c8c0b0');
+}
+
+function drawStaffIcon(ctx, p) {
+  p.line(2, 15, 10, 5, '#4a3420', 3);
+  p.line(2.5, 14.5, 10, 5.5, '#6d5030', 1);
+  p.disc(11, 4, 3.4, '#2a4a80');
+  p.disc(11, 4, 2.2, '#50a0f0');
+  p.disc(11, 3.6, 1, '#d8f0ff');
+  p.px(14, 1, '#a0d8ff'); p.px(8, 1, '#a0d8ff'); p.px(15, 6, '#a0d8ff');
+}
+
+function drawArrowIcon(ctx, p, head) {
+  p.line(2, 14, 12, 4, '#8a6a44', 2);
+  p.line(2.5, 13.5, 11, 5, '#b08a5c', 1);
+  p.line(11, 5, 14, 2, head, 2);       // head
+  p.px(14, 1, '#ffffff');
+  p.line(1, 15, 5, 11, '#c8c0b0', 1);  // fletching
+  p.px(2, 13, '#e8e0d0'); p.px(4, 15, '#e8e0d0');
+}
+
+function drawArmorIcon(ctx, p, pal) {
+  // breastplate: shoulders wide at top, tapering to the waist
+  for (let y = 3; y <= 14; y++) {
+    const half = y < 5 ? 6 : Math.max(2.5, 6 - (y - 5) * 0.35);
+    for (let x = Math.round(8 - half); x <= Math.round(8 + half); x++) {
+      const edge = Math.abs(x - 8) / half;
+      p.px(x, y, edge > 0.78 ? pal[2] : (edge < 0.25 ? pal[0] : pal[1]));
+    }
+  }
+  p.rect(5, 2, 7, 2, pal[2]);  // collar
+  p.px(8, 3, '#141014');
+  p.rect(3, 4, 3, 2, pal[0]);  // pauldrons
+  p.rect(11, 4, 3, 2, pal[0]);
+  p.line(8, 6, 8, 14, pal[2], 1); // centre seam
+}
+
+function drawTonicIcon(ctx, p, body, shine) {
+  p.rect(5, 6, 7, 8, '#2a2418');
+  p.rect(6, 7, 5, 6, body);
+  p.px(6, 8, shine);
+  p.rect(7, 2, 3, 4, '#3a3a44'); // long neck
+  p.rect(6, 1, 5, 2, '#c8a038'); // gold cap
+  p.rect(4, 13, 9, 2, '#6a5228'); // base
+}
+
+// ---------------- projectiles ----------------
+
+function drawArrowShot(ctx, p, head) {
+  p.line(1, 4, 10, 4, '#8a6a44', 2);
+  p.line(1, 4, 9, 4, '#b08a5c', 1);
+  p.line(10, 4, 14, 4, head, 2);
+  p.px(15, 4, '#ffffff');
+  p.line(0, 1, 3, 4, '#d8d0c0', 1);
+  p.line(0, 7, 3, 4, '#d8d0c0', 1);
+}
+
+function drawMagicBolt(ctx, p, f) {
+  const r = f ? 5 : 4.4;
+  p.disc(8, 8, r, '#1a3a78');
+  p.disc(8, 8, r - 1.4, '#3a78e0');
+  p.disc(8, 8, r - 2.8, '#a8d8ff');
+  p.px(8, 8, '#ffffff');
+  const spark = f ? [[2, 4], [13, 5], [6, 14]] : [[13, 3], [3, 11], [11, 13]];
+  for (const [sx, sy] of spark) p.px(sx, sy, '#a8d8ff');
 }
 
 function drawGold(ctx, p) {
@@ -239,44 +337,124 @@ function drawCrown(ctx, p, f) {
 
 // ---------------- first-person weapon ----------------
 
-function drawWeaponFrame(angleDeg, thrust) {
+// gauntleted fist + forearm running off the bottom-right corner
+function drawGauntlet(p, gx, gy) {
+  p.rect(gx - 8, gy - 10, 16, 10, '#4a4e58');
+  p.rect(gx - 7, gy - 9, 14, 8, '#6a707c');
+  p.rect(gx - 7, gy - 9, 14, 2, '#8a92a0');
+  for (let i = 0; i < 4; i++) p.rect(gx - 6 + i * 4, gy - 4, 3, 4, '#565c66');
+  p.line(gx + 4, gy + 2, gx + 22, gy + 18, '#4a4e58', 13);
+  p.line(gx + 6, gy + 4, gx + 22, gy + 16, '#6a707c', 8);
+  p.line(gx + 8, gy + 4, gx + 20, gy + 13, '#8a92a0', 3);
+}
+
+function newWeaponCanvas() {
   const c = makeCanvas(96, 96);
   const ctx = c.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  const p = P(ctx);
+  return { c, ctx, p: P(ctx) };
+}
+
+function drawSwordFrame(angleDeg, thrust, pal) {
+  const { c, ctx, p } = newWeaponCanvas();
   ctx.save();
   // pivot near bottom-right where the fist is
   ctx.translate(58, 88 - thrust * 14);
   ctx.rotate(angleDeg * Math.PI / 180);
   // blade
-  p.line(0, -16, 0, -54, '#8f97a3', 7);
-  p.line(0, -16, 0, -54, '#c9d2dc', 5);
-  p.line(0, -18, 0, -52, '#eef2f6', 2);
+  p.line(0, -16, 0, -54, pal.dark, 7);
+  p.line(0, -16, 0, -54, pal.mid, 5);
+  p.line(0, -18, 0, -52, pal.hi, 2);
   // blade tip taper
-  p.line(-2, -54, 0, -63, '#c9d2dc', 3);
-  p.line(1, -54, 0, -61, '#8f97a3', 2);
+  p.line(-2, -54, 0, -63, pal.mid, 3);
+  p.line(1, -54, 0, -61, pal.dark, 2);
   // fuller groove
-  p.line(0, -22, 0, -46, '#7a828e', 1);
+  p.line(0, -22, 0, -46, pal.dark, 1);
   // crossguard
-  p.rect(-12, -18, 24, 5, '#8a6a14');
-  p.rect(-12, -18, 24, 2, '#c9a428');
+  p.rect(-12, -18, 24, 5, pal.guard);
+  p.rect(-12, -18, 24, 2, pal.pommel);
   p.px(-12, -17, '#ffe070'); p.px(11, -17, '#ffe070');
   // grip
-  p.line(0, -12, 0, 0, '#5a3a20', 6);
+  p.line(0, -12, 0, 0, pal.grip, 6);
   p.line(0, -11, 0, -1, '#7a5230', 4);
   // pommel
-  p.disc(0, 3, 4, '#8a6a14');
-  p.disc(0, 2.6, 2.8, '#c9a428');
-  // gauntlet fist wrapping grip
-  p.rect(-8, -10, 16, 10, '#4a4e58');
-  p.rect(-7, -9, 14, 8, '#6a707c');
-  p.rect(-7, -9, 14, 2, '#8a92a0');
-  for (let i = 0; i < 4; i++) p.rect(-6 + i * 4, -4, 3, 4, '#565c66');
-  // arm/vambrace toward bottom-right corner
-  p.line(4, 2, 22, 18, '#4a4e58', 13);
-  p.line(6, 4, 22, 16, '#6a707c', 8);
-  p.line(8, 4, 20, 13, '#8a92a0', 3);
+  p.disc(0, 3, 4, pal.guard);
+  p.disc(0, 2.6, 2.8, pal.pommel);
+  drawGauntlet(p, 0, 0);
   ctx.restore();
+  return c;
+}
+
+// pull 0..1 draws the string back; loosed hides the arrow and shakes the string
+function drawBowFrame(pull, loosed) {
+  const { c, ctx, p } = newWeaponCanvas();
+  const MID_Y = 60, TIP_X = 45, TOP_Y = 14, BOT_Y = 106;
+  // limbs: a tall arc bowing away from the archer
+  for (let i = 0; i <= 90; i++) {
+    const a = -1.12 + (i / 90) * 2.24;
+    const x = 56 - Math.cos(a) * 26, y = MID_Y + Math.sin(a) * 51;
+    p.px(x + 2, y, '#3c2810');
+    p.px(x + 1, y, '#5c3c18');
+    p.px(x, y, '#8a5c28');
+    p.px(x - 1, y, '#a87038');
+    p.px(x - 2, y, '#6b4a20');
+  }
+  // horn nocks
+  p.disc(TIP_X, TOP_Y, 2.2, '#d8d0bc');
+  p.disc(TIP_X, BOT_Y, 2.2, '#d8d0bc');
+  // leather-wrapped riser where the bow hand sits
+  p.rect(52, MID_Y - 11, 6, 22, '#4a3218');
+  p.rect(53, MID_Y - 10, 4, 20, '#6b4a20');
+
+  const nx = TIP_X + pull * 22;
+  const jitter = loosed ? 2 : 0;
+  p.line(TIP_X, TOP_Y, nx, MID_Y - jitter, '#e8e0cc', 1);
+  p.line(nx, MID_Y - jitter, TIP_X, BOT_Y, '#e8e0cc', 1);
+  if (loosed) {
+    // the string blurs into two as it snaps back
+    p.line(TIP_X, TOP_Y, nx, MID_Y + jitter, '#8a8478', 1);
+    p.line(nx, MID_Y + jitter, TIP_X, BOT_Y, '#8a8478', 1);
+  } else {
+    // nocked arrow, aimed away across the riser
+    p.line(nx, MID_Y, 18, MID_Y, '#8a6a44', 2);
+    p.line(nx - 2, MID_Y - 1, 20, MID_Y - 1, '#b08a5c', 1);
+    p.line(18, MID_Y, 7, MID_Y, '#c9d2dc', 3);
+    p.px(5, MID_Y, '#eef2f6');
+    p.line(nx - 3, MID_Y - 4, nx + 3, MID_Y, '#d8d0c0', 1);
+    p.line(nx - 3, MID_Y + 4, nx + 3, MID_Y, '#d8d0c0', 1);
+  }
+  // bow hand clamped on the riser, string hand back at the nock
+  p.rect(48, MID_Y - 6, 14, 13, '#4a4e58');
+  p.rect(49, MID_Y - 5, 12, 11, '#6a707c');
+  p.rect(49, MID_Y - 5, 12, 2, '#8a92a0');
+  drawGauntlet(p, nx + 8, MID_Y + 18);
+  return c;
+}
+
+// glow 0..1 swells the orb; raise lifts the whole staff toward the eye
+function drawStaffFrame(glow, raise) {
+  const { c, ctx, p } = newWeaponCanvas();
+  const ox = 36 - raise * 2, oy = 32 - raise;
+  // haft from the bottom-right corner up to the head
+  p.line(ox + 4, oy + 8, 88, 96 - raise, '#33240f', 9);
+  p.line(ox + 4, oy + 8, 86, 96 - raise, '#4f3a1c', 6);
+  p.line(ox + 5, oy + 9, 82, 94 - raise, '#6d5030', 2);
+  // iron claw cradling the stone
+  for (const a of [-2.4, -0.9, 0.6, 2.1]) {
+    p.line(ox + Math.cos(a) * 3, oy + Math.sin(a) * 3, ox + Math.cos(a) * 10, oy + Math.sin(a) * 10, '#5a5e68', 3);
+  }
+  // the stone
+  const r = 8 + glow * 5;
+  p.disc(ox, oy, r + 2, glow > 0.7 ? '#4a7ad0' : '#1a2c50');
+  p.disc(ox, oy, r, '#2a5aa8');
+  p.disc(ox, oy, r * 0.66, '#5aa0f0');
+  p.disc(ox, oy, r * 0.32, glow > 0.7 ? '#ffffff' : '#c8e8ff');
+  if (glow > 0.7) {
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-0.7, -0.7], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7]]) {
+      p.line(ox + dx * r, oy + dy * r, ox + dx * (r + 11), oy + dy * (r + 11), '#a8d8ff', 1);
+    }
+  }
+  drawGauntlet(p, 66, 74 - raise);
   return c;
 }
 
@@ -304,7 +482,6 @@ function generateSprites() {
     SPRITES[k].push(painVariant(SPRITES[k][0]));
   }
 
-  SPRITES.potion = [makeSpriteFrame(16, 16, drawPotion)];
   SPRITES.gold = [makeSpriteFrame(16, 16, drawGold)];
   SPRITES.key = [makeSpriteFrame(16, 16, drawKey)];
   SPRITES.torch = [
@@ -318,10 +495,52 @@ function generateSprites() {
     makeSpriteFrame(20, 16, (c, p) => drawCrown(c, p, 1)),
   ];
 
-  // weapon: idle, wind-up, mid-swing, follow-through
-  WEAPON_FRAMES.length = 0;
-  WEAPON_FRAMES.push(drawWeaponFrame(-8, 0));   // idle, slight tilt
-  WEAPON_FRAMES.push(drawWeaponFrame(-38, 0.2)); // wind up right
-  WEAPON_FRAMES.push(drawWeaponFrame(18, 0.9));  // slash across
-  WEAPON_FRAMES.push(drawWeaponFrame(42, 0.5));  // follow through
+  // ---- gear icons (also used as world billboards for dropped loot) ----
+  for (const tier of ['bronze', 'iron', 'steel']) {
+    const T = tier[0].toUpperCase() + tier.slice(1);
+    SPRITES['iconSword' + T] = [makeSpriteFrame(16, 16, (c, p) => drawSwordIcon(c, p, BLADE_PAL[tier]))];
+    SPRITES['iconArrow' + T] = [makeSpriteFrame(16, 16, (c, p) => drawArrowIcon(c, p, HEAD_PAL[tier]))];
+  }
+  SPRITES.iconBow = [makeSpriteFrame(16, 16, drawBowIcon)];
+  SPRITES.iconStaff = [makeSpriteFrame(16, 16, drawStaffIcon)];
+  const ARMOR_PAL = {
+    Leather: ['#a4713c', '#7d5228', '#4c3016'],
+    Iron: ['#9aa2b0', '#6e7684', '#454c58'],
+    Steel: ['#dde4ec', '#a4aebc', '#6a7482'],
+  };
+  for (const k in ARMOR_PAL) {
+    SPRITES['iconArmor' + k] = [makeSpriteFrame(16, 16, (c, p) => drawArmorIcon(c, p, ARMOR_PAL[k]))];
+  }
+  SPRITES.iconPotionRed = [makeSpriteFrame(16, 16, (c, p) => drawPotion(c, p))];
+  SPRITES.iconPotionBlue = [makeSpriteFrame(16, 16, (c, p) => drawPotion(c, p, { dark: '#0e2058', body: '#2050c8', shine: '#90c0ff' }))];
+  SPRITES.iconTonicHp = [makeSpriteFrame(16, 16, (c, p) => drawTonicIcon(c, p, '#c0182a', '#ff8090'))];
+  SPRITES.iconTonicMp = [makeSpriteFrame(16, 16, (c, p) => drawTonicIcon(c, p, '#2050c8', '#90c0ff'))];
+
+  // ---- projectiles ----
+  for (const tier of ['bronze', 'iron', 'steel']) {
+    SPRITES['shot_arrow' + tier[0].toUpperCase() + tier.slice(1)] =
+      [makeSpriteFrame(16, 9, (c, p) => drawArrowShot(c, p, HEAD_PAL[tier]))];
+  }
+  SPRITES.shot_bolt = [
+    makeSpriteFrame(16, 16, (c, p) => drawMagicBolt(c, p, 0)),
+    makeSpriteFrame(16, 16, (c, p) => drawMagicBolt(c, p, 1)),
+  ];
+
+  // ---- first-person overlays: idle, wind-up, strike, follow-through ----
+  for (const tier of ['bronze', 'iron', 'steel']) {
+    WEAPON_FRAMES['sword' + tier[0].toUpperCase() + tier.slice(1)] = [
+      drawSwordFrame(-8, 0, BLADE_PAL[tier]),
+      drawSwordFrame(-38, 0.2, BLADE_PAL[tier]),
+      drawSwordFrame(18, 0.9, BLADE_PAL[tier]),
+      drawSwordFrame(42, 0.5, BLADE_PAL[tier]),
+    ];
+  }
+  WEAPON_FRAMES.bow = [
+    drawBowFrame(0.1, false), drawBowFrame(0.62, false),
+    drawBowFrame(0, true), drawBowFrame(0.06, false),
+  ];
+  WEAPON_FRAMES.staff = [
+    drawStaffFrame(0.15, 0), drawStaffFrame(0.6, 6),
+    drawStaffFrame(1, 10), drawStaffFrame(0.3, 3),
+  ];
 }
