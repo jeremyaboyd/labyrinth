@@ -1,19 +1,8 @@
-// ---- procedural 64x64 wall/floor textures, DOS palette flavor ----
+// ---- game/textures: procedural 64x64 wall/floor art, DOS palette flavor ----
+// Texture ids come from game/tiles.js (tile id == texture key).
 'use strict';
 
 const TEX_SIZE = 64;
-
-// Texture ids used in the map grid
-const T_STONE = 1;
-const T_MOSS = 2;
-const T_RUNE = 3;
-const T_BANNER = 4;
-const T_SKULL = 5;
-const T_DOOR = 8;
-const T_DOOR_LOCKED = 9;
-// non-map textures
-const T_FLOOR = 100;
-const T_CEIL = 101;
 
 const Textures = {}; // id -> {data: Uint32Array, w, h}
 

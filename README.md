@@ -29,7 +29,18 @@ Then visit `http://localhost:8123`.
 | `Shift` | Run |
 | `Tab` | Toggle map (fog of war) |
 | `M` | Toggle sound |
-| `Esc` | Pause |
+| `Esc` | Pause menu (save / quit) |
+| `↑` `↓` + `Enter` | Navigate menus |
+
+## Saving
+
+Three save slots, stored in your browser's localStorage. Save any time from
+the pause menu (`Esc` → SAVE GAME); the game also autosaves to your slot on
+every stair descent and on quit-to-title. The title screen offers CONTINUE
+(most recent slot), NEW GAME, and LOAD GAME. A save captures the full
+mid-floor state — position, health, gold, keys, every enemy, item, opened
+door, and your explored map. Dungeon layouts are not stored: they regenerate
+deterministically from the run's seed.
 
 ## The game
 
@@ -59,5 +70,8 @@ Then visit `http://localhost:8123`.
   pickups, monster voices, and a slow minor-key ambient drone.
 - Mazes come from a recursive-backtracker with rooms carved on top for loops
   and combat spaces; key/lock placement is validated with BFS reachability.
+- The code is split into an engine layer (`js/engine/`: raycaster, grid
+  queries, input, synth — no game knowledge) and a game layer (`js/game/`:
+  tiles, balance config, art, sfx, dungeon, actors, UI, saves).
 
 Built as a one-shot by Claude.
