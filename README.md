@@ -24,8 +24,10 @@ Then visit `http://localhost:8123`.
 |---|---|
 | `W` `A` `S` `D` | Move / strafe |
 | Mouse (click to capture) or `←` `→` | Turn |
-| `Space` / left click | Sword attack |
-| `E` | Open / unlock doors |
+| `Space` / left click | Attack with the equipped weapon |
+| `E` | Open / unlock doors, trade at a shop window |
+| `I` | Open your pack (10 slots) |
+| `Q` | Quick items — drink without hunting through the pack |
 | `Shift` | Run |
 | `Tab` | Toggle map (fog of war) |
 | `M` | Toggle sound |
@@ -40,8 +42,10 @@ every stair descent. Quitting to the title does **not** save — anything since
 your last save or descent is lost. The title screen offers CONTINUE (most
 recent slot), NEW GAME, and LOAD GAME. A save captures the full mid-floor
 state — position, health, gold, keys, every enemy, item, opened door, and
-your explored map. Dungeon layouts are not stored: they regenerate
-deterministically from the run's seed.
+your explored map, your pack and what you have equipped, and which shop
+lines you have already bought out. Dungeon layouts are not stored: they
+regenerate deterministically from the run's seed. Saves from before the
+shops update still load — those runs simply keep their starting kit.
 
 ## The game
 
@@ -53,8 +57,19 @@ deterministically from the run's seed.
 - **Three foes** — giant rats (fast, weak), skeleton warriors (steady, armed),
   and dark wraiths (fast, vicious, glowing eyes). They wander until they see
   you, then they hunt.
-- **Loot** — gold piles for score, crimson draughts to heal (+30), slain foes
-  drop coin.
+- **Shop windows** — some walls are cut through with an arched window: a
+  hooded keeper behind a counter, wares on the shelf, and a brass plaque
+  naming the trade. Press `E` at the counter to spend your gold. Every floor
+  has one to three of them, and the stock deepens as you descend.
+- **Gear** — bronze, iron and steel swords; a hunting bow that eats the arrows
+  you carry (bronze, iron, steel); an arcane staff that spends mana to throw
+  magic bolts. Leather, iron and steel armour soak 15, 30 and 45 percent of
+  every blow. Vitality and arcane tonics raise your maximum HP and MP for good.
+- **Your pack** — ten slots, no more. `I` opens it; `Enter` on a row offers
+  use, equip/unequip and destroy. Hoarding one of everything leaves no room
+  for draughts, so something has to go.
+- **Loot** — gold piles to spend, crimson draughts to heal (+30), blue
+  draughts to restore mana (+30), slain foes drop coin.
 - **The Crown** — reach floor 8, THE THRONE OF THE DEEP, and take it. The
   stairs descend further for those who want an endless high-score run; your
   deepest delve is remembered.
@@ -64,7 +79,12 @@ deterministically from the run's seed.
 - Pure canvas software rendering: DDA raycast walls, per-row textured
   floor/ceiling casting, z-buffered billboard sprites, distance fog quantized
   into DOS-style light bands, torch flicker.
-- Wolf3D-style sliding doors rendered in the raycast core.
+- Wolf3D-style sliding doors rendered in the raycast core; shop windows are
+  ordinary solid wall tiles, placed only on walls with a single exposed face
+  so the window art is never seen from behind. Their lettering is pre-flipped
+  in the texture, because the raycaster mirrors every wall face.
+- Arrows and magic bolts are sub-stepped billboards, so a fast shot cannot
+  tunnel through a wall or a rat.
 - All textures and sprites are generated procedurally at boot (no image
   assets); text uses a hand-built 5×7 bitmap font.
 - All sound is synthesized live with WebAudio (no audio assets): sword, doors,
@@ -73,6 +93,7 @@ deterministically from the run's seed.
   and combat spaces; key/lock placement is validated with BFS reachability.
 - The code is split into an engine layer (`js/engine/`: raycaster, grid
   queries, input, synth — no game knowledge) and a game layer (`js/game/`:
-  tiles, balance config, art, sfx, dungeon, actors, UI, saves).
+  tiles, balance config, items, shops, art, sfx, dungeon, projectiles, actors,
+  UI, menus, saves).
 
 Built as a one-shot by Claude.

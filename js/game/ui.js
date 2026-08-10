@@ -3,22 +3,37 @@
 
 function drawWeapon() {
   const p = G.player;
+  const w = weaponDef(p);
+  const set = w && WEAPON_FRAMES[w.fp];
+  if (!set) return; // bare handed
   let frame = 0;
   if (p.attackT > 0) {
-    const t = 0.32 - p.attackT;
-    frame = t < 0.08 ? 1 : (t < 0.2 ? 2 : 3);
+    const prog = 1 - clamp(p.attackT / w.swing, 0, 1);
+    frame = prog < w.frames[0] ? 1 : (prog < w.frames[1] ? 2 : 3);
   }
   const sway = p.moving ? Math.sin(p.bobPhase) * 7 : Math.sin(G.time * 1.4) * 2;
   const dip = p.moving ? Math.abs(Math.cos(p.bobPhase)) * 5 : 0;
-  const c = WEAPON_FRAMES[frame];
   const scale = 1.8;
   const wsize = Math.round(96 * scale);
-  ctx.drawImage(c, Math.round(W - 205 + sway), Math.round(VIEW_H - wsize - 4 + dip), wsize, wsize);
+  ctx.drawImage(set[frame], Math.round(W - 205 + sway), Math.round(VIEW_H - wsize - 4 + dip), wsize, wsize);
 }
 
-function drawIcon(name, x, y) {
-  const f = SPRITES[name][0];
-  if (f.canvas) ctx.drawImage(f.canvas, x, y);
+function drawIcon(name, x, y, size) {
+  const list = SPRITES[name];
+  const f = list && list[0];
+  if (!f || !f.canvas) return;
+  if (size) ctx.drawImage(f.canvas, x, y, size, size);
+  else ctx.drawImage(f.canvas, x, y);
+}
+
+// small labelled meter used for HP and MP
+function drawMeter(label, x, y, frac, fill, back, value) {
+  drawText(ctx, label, x, y + 1, '#b8a890', 1);
+  ctx.fillStyle = back;
+  ctx.fillRect(x + 16, y, 52, 8);
+  ctx.fillStyle = fill;
+  ctx.fillRect(x + 17, y + 1, Math.round(50 * clamp(frac, 0, 1)), 6);
+  drawText(ctx, value, x + 72, y + 1, '#e0d0b0', 1);
 }
 
 function drawHUD() {
@@ -32,45 +47,60 @@ function drawHUD() {
   ctx.fillRect(0, H - 2, W, 2);
   // rivets
   ctx.fillStyle = '#5a4c3c';
-  for (const x of [4, 314]) { ctx.fillRect(x, VIEW_H + 5, 2, 2); ctx.fillRect(x, H - 7, 2, 2); }
+  for (const x of [4, 314]) { ctx.fillRect(x, VIEW_H + 5, 2, 2); ctx.fillRect(x, H - 8, 2, 2); }
 
-  // HP
-  drawText(ctx, 'HP', 12, VIEW_H + 6, '#b8a890', 1);
-  const hpFrac = clamp(p.hp / p.maxHp, 0, 1);
-  ctx.fillStyle = '#3a0c0c';
-  ctx.fillRect(12, VIEW_H + 16, 62, 8);
-  ctx.fillStyle = hpFrac > 0.35 ? '#c02020' : '#e05010';
-  ctx.fillRect(13, VIEW_H + 17, Math.round(60 * hpFrac), 6);
-  drawText(ctx, String(Math.max(0, Math.ceil(p.hp))), 80, VIEW_H + 17, '#e0d0b0', 1);
+  const hpFrac = p.hp / p.maxHp;
+  drawMeter('HP', 8, VIEW_H + 4, hpFrac, hpFrac > 0.35 ? '#c02020' : '#e05010', '#3a0c0c',
+    String(Math.max(0, Math.ceil(p.hp))));
+  drawMeter('MP', 8, VIEW_H + 18, p.mp / p.maxMp, '#2050c8', '#0c1436', String(Math.floor(p.mp)));
 
-  // gold
-  drawIcon('gold', 112, VIEW_H + 12);
-  drawText(ctx, String(p.gold), 130, VIEW_H + 17, '#e8c040', 1);
+  // purse and quiver
+  drawIcon('gold', 104, VIEW_H + 2);
+  drawText(ctx, String(p.gold), 122, VIEW_H + 7, '#e8c040', 1);
+  if (p.equip.ammo) {
+    drawIcon(ITEMS[p.equip.ammo].icon, 104, VIEW_H + 20);
+    drawText(ctx, String(ammoCount(p)), 122, VIEW_H + 25, '#c8b898', 1);
+  }
 
-  // floor
-  drawText(ctx, 'FLOOR ' + p.floor, 170, VIEW_H + 6, '#b8a890', 1);
-  drawText(ctx, 'BEST ' + G.best, 170, VIEW_H + 17, '#6a6058', 1);
+  // what is in hand and on the back
+  const w = weaponDef(p), ar = itemDef(p.equip.armor);
+  drawText(ctx, w ? w.name : 'BARE FISTS', 156, VIEW_H + 5, '#b8a890', 1);
+  drawText(ctx, ar ? ar.name : 'NO ARMOUR', 156, VIEW_H + 19, ar ? '#9aa2b0' : '#5a5248', 1);
+
+  // depth
+  drawText(ctx, 'FLOOR ' + p.floor, 248, VIEW_H + 5, '#b8a890', 1);
+  drawText(ctx, 'BEST ' + G.best, 248, VIEW_H + 19, '#6a6058', 1);
 
   // key slot
   ctx.fillStyle = '#0e0b08';
-  ctx.fillRect(238, VIEW_H + 8, 20, 18);
-  if (p.keys > 0) drawIcon('key', 240, VIEW_H + 9);
+  ctx.fillRect(298, VIEW_H + 3, 18, 18);
+  if (p.keys > 0) drawIcon('key', 299, VIEW_H + 4);
 
-  // controls hint
-  drawText(ctx, 'TAB MAP', 268, VIEW_H + 6, '#4a4238', 1);
-  drawText(ctx, 'E USE', 268, VIEW_H + 17, '#4a4238', 1);
+  // the hint row doubles as a status line while a full panel is up
+  const latest = G.messages[G.messages.length - 1];
+  if (latest && PANEL_STATES.includes(G.state)) {
+    drawText(ctx, latest.text, 8, VIEW_H + 31, '#c8b070', 1);
+  } else {
+    drawText(ctx, 'TAB MAP  E USE  I PACK  Q QUICK', 8, VIEW_H + 31, '#4a4238', 1);
+  }
 }
 
-function doorHint() {
+// prompt for whatever the player is standing in front of
+function useHint() {
   const p = G.player;
+  const lvl = G.level;
   const fx = p.x + Math.cos(p.a) * 0.9, fy = p.y + Math.sin(p.a) * 0.9;
-  const c = cellAt(G.level, fx, fy);
+  const c = cellAt(lvl, fx, fy);
+  let hint = null;
   if (c === T_DOOR || c === T_DOOR_LOCKED) {
-    const d = G.level.doors[(fy | 0) * G.level.w + (fx | 0)];
-    if (d && d.open < 0.1) {
-      drawTextCentered(ctx, d.locked ? 'E - UNLOCK' : 'E - OPEN', W / 2, VIEW_H - 24, '#d0c090', 1);
-    }
+    const d = lvl.doors[(fy | 0) * lvl.w + (fx | 0)];
+    if (d && d.open < 0.1) hint = d.locked ? 'E - UNLOCK' : 'E - OPEN';
+  } else if (shopKindAt(c)) {
+    const shop = shopAtCell(lvl, fx, fy);
+    if (shop && (p.x | 0) === shop.fx && (p.y | 0) === shop.fy) hint = 'E - ' + SHOP_TITLE[shop.kind];
   }
+  // sits above the shop plaque rather than across it
+  if (hint) drawTextCentered(ctx, hint, W / 2, VIEW_H - 44, '#d0c090', 1);
 }
 
 function drawMessages() {
@@ -103,6 +133,9 @@ function drawMinimap() {
     if (c === 0) col = '#3c352a';
     else if (c === T_DOOR) col = '#a06a34';
     else if (c === T_DOOR_LOCKED) col = '#e0b020';
+    else if (c === T_SHOP_POTION) col = '#a060d0';
+    else if (c === T_SHOP_WEAPON) col = '#d05030';
+    else if (c === T_SHOP_ARMOR) col = '#50a0d0';
     else col = '#8d857a';
     ctx.fillStyle = col;
     ctx.fillRect(ox + x * scale, oy + y * scale, scale, scale);
@@ -212,8 +245,9 @@ function drawTitle() {
 
   drawMenuItems(G.menu.items, G.menu.sel, 126, 12);
 
-  drawTextCentered(ctx, 'WASD MOVE  MOUSE/ARROWS TURN  SPACE/CLICK ATTACK  E USE', W / 2, VIEW_H + 6, '#544c40', 1);
-  if (G.best > 1) drawTextCentered(ctx, 'DEEPEST DELVE: FLOOR ' + G.best, W / 2, VIEW_H + 18, '#6a6058', 1);
+  drawTextCentered(ctx, 'WASD MOVE   MOUSE OR ARROWS TURN   SHIFT RUN', W / 2, VIEW_H + 5, '#544c40', 1);
+  drawTextCentered(ctx, 'SPACE ATTACK   E USE   I PACK   Q QUICK   TAB MAP', W / 2, VIEW_H + 16, '#544c40', 1);
+  if (G.best > 1) drawTextCentered(ctx, 'DEEPEST DELVE: FLOOR ' + G.best, W / 2, VIEW_H + 28, '#6a6058', 1);
 }
 
 function drawTransition() {

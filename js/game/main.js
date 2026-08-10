@@ -2,8 +2,8 @@
 'use strict';
 
 const W = 320, H = 200;
-const HUD_H = 32;
-const VIEW_H = H - HUD_H; // 168
+const HUD_H = 40;
+const VIEW_H = H - HUD_H; // 160
 const FOV_PLANE = 0.66;
 
 const canvas = document.getElementById('screen');
@@ -31,6 +31,7 @@ const G = {
   player: null,
   enemies: [],
   items: [],
+  projectiles: [],
   messages: [],
   transT: 0,
   shakeT: 0,
@@ -40,7 +41,9 @@ const G = {
   crownTaken: false,
   best: parseInt(localStorage.getItem('labyrinth.best') || '0', 10),
   stats: { kills: 0 },
-  menu: { items: [], ids: [], sel: 0, slots: null },
+  menu: { items: [], ids: [], sel: 0, slots: null, actions: [], actionSel: 0, actionSlot: 0 },
+  shop: null, // shop whose window is currently open
+  hot: [],    // quick-item rows, rebuilt each time Q is pressed
   activeSlot: null, // save slot this run writes to (null until saved/loaded)
 };
 
@@ -65,6 +68,7 @@ function loadFloor(n) {
   }
   G.enemies = lvl.spawns.map(s => makeEnemy(s.type, s.x, s.y));
   G.items = lvl.items.map(it => ({ ...it, bob: Math.random() * 10 }));
+  G.projectiles = [];
   if (n > G.best) { G.best = n; localStorage.setItem('labyrinth.best', String(n)); }
 }
 
@@ -129,14 +133,24 @@ function openSlotMenu(mode) { // 'loadmenu' | 'savemenu'
 // move selection; in loadmenu only occupied slots are selectable
 function menuMove(dir) {
   const m = G.menu;
-  const n = G.state === 'loadmenu' || G.state === 'savemenu' ? SaveSys.SLOTS : m.items.length;
-  for (let step = 1; step <= n; step++) {
-    const next = ((m.sel + dir * step) % n + n) % n;
-    if (G.state === 'loadmenu' && !m.slots[next]) continue;
-    m.sel = next;
-    break;
+  if (G.state === 'loadmenu' || G.state === 'savemenu') {
+    const n = SaveSys.SLOTS;
+    for (let step = 1; step <= n; step++) {
+      const next = ((m.sel + dir * step) % n + n) % n;
+      if (G.state === 'loadmenu' && !m.slots[next]) continue;
+      m.sel = next;
+      break;
+    }
+    SFX.menuMove();
+    return;
   }
-  SFX.menuMove();
+  if (G.state === 'title' || G.state === 'pause') {
+    const n = m.items.length;
+    m.sel = ((m.sel + dir) % n + n) % n;
+    SFX.menuMove();
+    return;
+  }
+  menuSelRef(dir); // pack, item actions, quick items, shop
 }
 
 function loadFromSlot(slot) {
@@ -161,20 +175,27 @@ function buildBillboards() {
   }
   for (const it of G.items) {
     const bobZ = 0.04 + Math.sin(it.bob) * 0.02;
-    if (it.type === 'potion') out.push({ x: it.x, y: it.y, img: SPRITES.potion[0], hFrac: 0.24, zOff: 0.01, glow: false });
+    if (it.type === 'item') {
+      const d = ITEMS[it.item];
+      const spr = d && SPRITES[d.icon];
+      if (spr) out.push({ x: it.x, y: it.y, img: spr[0], hFrac: 0.24, zOff: 0.01, glow: false });
+    }
     else if (it.type === 'gold') out.push({ x: it.x, y: it.y, img: SPRITES.gold[0], hFrac: 0.2, zOff: 0.01, glow: false });
     else if (it.type === 'key') out.push({ x: it.x, y: it.y, img: SPRITES.key[0], hFrac: 0.24, zOff: bobZ, glow: true });
     else if (it.type === 'crown') out.push({ x: it.x, y: it.y, img: SPRITES.crown[((G.time * 3) | 0) % 2], hFrac: 0.3, zOff: 0.15 + bobZ, glow: true });
   }
   for (const e of G.enemies) {
     const st = ENEMY_STATS[e.type];
+    const frames = SPRITES[e.type];
     let fi;
     if (e.painT > 0) fi = 3;
     else if (e.atkT > 0) fi = 2;
-    else fi = ((e.walkPhase | 0) % 2);
+    else fi = (e.walkPhase | 0) % 2;
+    fi = ((fi % frames.length) + frames.length) % frames.length;
     const zOff = st.floats ? 0.06 + Math.sin(e.bob) * 0.04 : 0;
-    out.push({ x: e.x, y: e.y, img: SPRITES[e.type][fi], hFrac: st.hFrac, zOff, glow: st.glow });
+    out.push({ x: e.x, y: e.y, img: frames[fi], hFrac: st.hFrac, zOff, glow: st.glow });
   }
+  projectileBillboards(out);
   return out;
 }
 
@@ -191,10 +212,27 @@ function renderWorldView(camX, camY, camA, bob) {
 function handlePress(code) {
   initAudio(); // idempotent; any keypress is a valid audio gesture
 
-  const inMenu = ['title', 'pause', 'loadmenu', 'savemenu'].includes(G.state);
-  if (inMenu) {
+  if (MENU_STATES.includes(G.state)) {
     if (code === 'ArrowUp' || code === 'KeyW') { menuMove(-1); return; }
     if (code === 'ArrowDown' || code === 'KeyS') { menuMove(1); return; }
+  }
+
+  // quick items double as number keys
+  if (G.state === 'hotlist' && code.startsWith('Digit')) {
+    const n = parseInt(code.slice(5), 10);
+    if (n >= 1 && n <= G.hot.length) { G.menu.sel = n - 1; useHotlistEntry(n - 1); }
+    return;
+  }
+
+  if (code === 'KeyI') {
+    if (G.state === 'play') openInventory();
+    else if (G.state === 'inventory') G.state = 'play';
+    return;
+  }
+  if (code === 'KeyQ') {
+    if (G.state === 'play') openHotlist();
+    else if (G.state === 'hotlist') G.state = 'play';
+    return;
   }
 
   if (code === 'Enter') {
@@ -221,6 +259,14 @@ function handlePress(code) {
       if (id === 'resume') G.state = 'play';
       else if (id === 'save') openSlotMenu('savemenu');
       else if (id === 'quit') openTitleMenu(); // deliberately does not save
+    } else if (G.state === 'inventory') {
+      openItemAction();
+    } else if (G.state === 'itemaction') {
+      confirmItemAction();
+    } else if (G.state === 'hotlist') {
+      useHotlistEntry(G.menu.sel);
+    } else if (G.state === 'shop') {
+      confirmShopBuy();
     } else if (G.state === 'dead') {
       openTitleMenu();
     } else if (G.state === 'win') {
@@ -234,6 +280,8 @@ function handlePress(code) {
     else if (G.state === 'pause') G.state = 'play';
     else if (G.state === 'loadmenu') openTitleMenu();
     else if (G.state === 'savemenu') openPauseMenu();
+    else if (G.state === 'itemaction') G.state = 'inventory';
+    else if (['inventory', 'hotlist', 'shop'].includes(G.state)) G.state = 'play';
     return;
   }
   if (code === 'Tab') { G.showMap = !G.showMap; return; }
@@ -242,7 +290,7 @@ function handlePress(code) {
     addMsg(on ? 'SOUND ON' : 'SOUND OFF');
     return;
   }
-  if (code === 'KeyE' && G.state === 'play') useDoor();
+  if (code === 'KeyE' && G.state === 'play') useFront();
   if (code === 'Space' && G.state === 'play') startAttack();
 }
 
@@ -262,7 +310,8 @@ Input.init(canvas, {
 let lastT = 0;
 function frame(t) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.05, (t - lastT) / 1000 || 0.016);
+  // clamp: a clock that jumps backwards must never rewind animation phases
+  const dt = clamp((t - lastT) / 1000 || 0.016, 0, 0.05);
   lastT = t;
   G.time += dt;
 
@@ -302,24 +351,30 @@ function frame(t) {
   ctx.fillRect(0, 0, W, VIEW_H);
   ctx.putImageData(view.frameImg, sx, sy);
 
-  if (G.state === 'play' || G.state === 'pause' || G.state === 'savemenu') {
+  if (G.state === 'play' || OVERLAY_STATES.includes(G.state)) {
     drawWeapon();
     if (G.hurtT > 0) drawVignetteOverlay('#c02010', clamp(G.hurtT, 0, 0.35));
     // crosshair
     ctx.fillStyle = 'rgba(230,220,200,0.5)';
     ctx.fillRect(W / 2, VIEW_H / 2 - 2, 1, 5);
     ctx.fillRect(W / 2 - 2, VIEW_H / 2, 5, 1);
-    doorHint();
+    useHint();
   }
 
   drawHUD();
-  drawMessages();
   if (G.showMap && (G.state === 'play' || G.state === 'pause')) drawMinimap();
 
   if (G.state === 'pause') drawPause();
   else if (G.state === 'savemenu') drawSlotMenu('SAVE GAME', G.menu.slots, G.menu.sel);
+  else if (G.state === 'inventory') drawInventory();
+  else if (G.state === 'itemaction') drawItemAction();
+  else if (G.state === 'hotlist') drawHotlist();
+  else if (G.state === 'shop') drawShop();
   else if (G.state === 'dead') drawDead();
   else if (G.state === 'win') drawWin();
+
+  // last so feedback is never buried; panels show it on the HUD status line
+  if (!PANEL_STATES.includes(G.state)) drawMessages();
 }
 
 // ---------- boot ----------

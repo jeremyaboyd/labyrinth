@@ -17,9 +17,18 @@ const BALANCE = {
   skeletons: f => 1 + Math.floor(f * 0.9),
   wraiths: f => (f >= 3 ? Math.min(f - 2, 5) : 0),
   potions: f => 2 + Math.floor(f / 2),
-  goldPiles: f => 4 + f,
+  goldPiles: f => 5 + f,
   doorMax: f => 4 + Math.floor(f / 2),
 };
+
+// gold has somewhere to go now, so purses are a little fatter
+const ECONOMY = {
+  pileMin: 12, pileVary: 22,
+};
+
+// the player starts with these; shops sell the rest
+const START_KIT = { weapon: 'swordBronze', potions: 2, mp: 30 };
+const MANA_REGEN = 1.0; // mp per second
 
 // movement bindings (held keys); discrete actions are mapped in main.js
 const KEYS = {
@@ -31,3 +40,11 @@ const KEYS = {
   turnR: ['ArrowRight'],
   run: ['ShiftLeft', 'ShiftRight'],
 };
+
+// screens that pause the simulation and take menu input
+const MENU_STATES = ['title', 'pause', 'loadmenu', 'savemenu', 'inventory', 'itemaction', 'hotlist', 'shop'];
+// screens drawn on top of a frozen first-person view
+const OVERLAY_STATES = ['pause', 'savemenu', 'inventory', 'itemaction', 'hotlist', 'shop'];
+// full-bleed panels: floating messages would land on their titles, so those
+// screens route the latest message to the HUD status line instead
+const PANEL_STATES = ['inventory', 'itemaction', 'shop'];

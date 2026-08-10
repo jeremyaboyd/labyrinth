@@ -27,17 +27,25 @@ const SaveSys = (() => {
   function snapshot() {
     const p = G.player;
     return {
-      v: 1,
+      v: 2,
       t: Date.now(),
       baseSeed: G.baseSeed,
       floor: p.floor,
       floorName: G.level.name,
       crownTaken: G.crownTaken,
       kills: G.stats.kills,
-      player: { x: r2(p.x), y: r2(p.y), a: r2(p.a), hp: Math.ceil(p.hp), maxHp: p.maxHp, gold: p.gold, keys: p.keys },
+      player: {
+        x: r2(p.x), y: r2(p.y), a: r2(p.a),
+        hp: Math.ceil(p.hp), maxHp: p.maxHp,
+        mp: Math.floor(p.mp), maxMp: p.maxMp,
+        gold: p.gold, keys: p.keys,
+      },
+      inv: p.inv.map(s => (s ? [s.id, s.n] : 0)),
+      equip: [p.equip.weapon || 0, p.equip.armor || 0, p.equip.ammo || 0],
       enemies: G.enemies.map(e => [e.type, r2(e.x), r2(e.y), Math.ceil(e.hp), e.state === 'chase' ? 1 : 0]),
-      items: G.items.map(it => [it.type, r2(it.x), r2(it.y)]),
+      items: G.items.map(it => [it.type, r2(it.x), r2(it.y), it.item || 0]),
       doors: Object.entries(G.level.doors).map(([k, d]) => [+k, r2(d.open), d.locked ? 1 : 0]),
+      shops: (G.level.shops || []).map(s => [s.idx, s.stock.map(l => l.n)]),
       explored: encodeExplored(G.explored),
     };
   }
@@ -56,7 +64,7 @@ const SaveSys = (() => {
       const raw = localStorage.getItem(key(slot));
       if (!raw) return null;
       const d = JSON.parse(raw);
-      if (d.v !== 1 || !d.player || !Number.isFinite(d.baseSeed)) return null;
+      if ((d.v !== 1 && d.v !== 2) || !d.player || !Number.isFinite(d.baseSeed)) return null;
       return d;
     } catch (err) {
       return null;
@@ -88,13 +96,42 @@ const SaveSys = (() => {
     p.hp = d.player.hp; p.maxHp = d.player.maxHp;
     p.gold = d.player.gold; p.keys = d.player.keys;
     p.floor = d.floor;
+
+    // v1 predates the pack; those runs keep the starting kit newPlayer() gave them
+    if (d.v >= 2) {
+      p.maxMp = d.player.maxMp; p.mp = d.player.mp;
+      p.inv = newInventory();
+      (d.inv || []).forEach((s, i) => {
+        if (s && ITEMS[s[0]] && i < INV_SLOTS) p.inv[i] = { id: s[0], n: s[1] };
+      });
+      const [wep, arm, ammo] = d.equip || [];
+      p.equip = {
+        weapon: ITEMS[wep] ? wep : null,
+        armor: ITEMS[arm] ? arm : null,
+        ammo: ITEMS[ammo] ? ammo : null,
+      };
+      syncEquipment(p);
+    }
+
     G.enemies = d.enemies.map(([type, x, y, hp, chase]) => {
       const e = makeEnemy(type, x, y);
       e.hp = hp;
       e.state = chase ? 'chase' : 'idle';
       return e;
     });
-    G.items = d.items.map(([type, x, y]) => ({ type, x, y, bob: Math.random() * 10 }));
+    G.items = d.items.map(([type, x, y, item]) => {
+      // v1 stored bare 'potion' pickups; they are crimson draughts now
+      if (type === 'potion') return { type: 'item', item: 'potionRed', x, y, bob: Math.random() * 10 };
+      return { type, item: item || undefined, x, y, bob: Math.random() * 10 };
+    }).filter(it => it.type !== 'item' || ITEMS[it.item]);
+    G.projectiles = [];
+
+    for (const [idx, counts] of (d.shops || [])) {
+      const shop = (G.level.shops || []).find(s => s.idx === idx);
+      if (!shop) continue;
+      counts.forEach((n, i) => { if (shop.stock[i]) shop.stock[i].n = n; });
+    }
+
     for (const [idx, open, locked] of d.doors) {
       const door = G.level.doors[idx];
       if (!door) continue;
