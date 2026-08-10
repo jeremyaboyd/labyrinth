@@ -72,6 +72,43 @@ function openShop(shop) {
   SFX.menuSelect(); // the greeting is the panel subtitle, not a floating message
 }
 
+// ---------- meeting someone ----------
+// E on a villager opens this; the king keeps his scripted audience
+function openNpcMenu(npc) {
+  G.npc = npc;
+  G.menu.actions = [
+    { id: 'talk', label: 'TALK' },
+    { id: 'trade', label: 'TRADE' },
+    { id: 'cancel', label: 'FAREWELL' },
+  ];
+  G.menu.actionSel = 0;
+  G.state = 'npcaction';
+  SFX.menuSelect();
+}
+
+function confirmNpcAction() {
+  const npc = G.npc;
+  const act = G.menu.actions[G.menu.actionSel];
+  if (!npc || !act || act.id === 'cancel') { G.state = 'play'; return; }
+  if (act.id === 'talk') startDialogue(villagerTalk(npc));
+  else openShop(villagerBarter(npc));
+}
+
+function drawNpcAction() {
+  const npc = G.npc;
+  const acts = G.menu.actions;
+  const h = acts.length * 12 + 22;
+  const x = 96, y = Math.round((VIEW_H - h) / 2), w = 128;
+  drawVignetteOverlay('#000000', 0.35);
+  drawPanel(x, y, w, h);
+  drawTextCentered(ctx, npc ? villagerName(npc) : '', x + w / 2, y + 6, '#c8a038', 1);
+  acts.forEach((a, i) => {
+    const ry = y + 18 + i * 12;
+    if (i === G.menu.actionSel) highlightRow(x + 4, ry, w - 8);
+    drawTextCentered(ctx, a.label, x + w / 2, ry, i === G.menu.actionSel ? '#ffe080' : '#8a8078', 1);
+  });
+}
+
 // ---------- talking ----------
 function startDialogue(d) {
   G.dialogue = { name: d.name, lines: d.lines, onEnd: d.onEnd || null };
@@ -343,7 +380,7 @@ function menuRowCount() {
 }
 
 function menuSelRef(dir) {
-  if (G.state === 'itemaction' || G.state === 'questaction') {
+  if (G.state === 'itemaction' || G.state === 'questaction' || G.state === 'npcaction') {
     const n = G.menu.actions.length;
     G.menu.actionSel = ((G.menu.actionSel + dir) % n + n) % n;
   } else {
@@ -558,8 +595,9 @@ function drawShop() {
 
   drawVignetteOverlay('#000000', 0.62);
   drawPanel(10, 6, W - 20, VIEW_H - 16);
-  drawTextCentered(ctx, SHOP_TITLE[shop.kind], W / 2, 12, '#c8a038', 1);
-  drawTextCentered(ctx, SHOP_GREETING[shop.kind], W / 2, 24, '#6a6058', 1);
+  // villager barter carries its own title; the walls' windows use the standing ones
+  drawTextCentered(ctx, shop.title || SHOP_TITLE[shop.kind], W / 2, 12, '#c8a038', 1);
+  drawTextCentered(ctx, shop.greeting || SHOP_GREETING[shop.kind], W / 2, 24, '#6a6058', 1);
   ctx.fillStyle = '#3a3028';
   ctx.fillRect(18, 34, W - 36, 1);
 

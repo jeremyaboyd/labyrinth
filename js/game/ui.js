@@ -98,14 +98,19 @@ function useHint() {
   } else if (stair === 'up') {
     hint = p.floor === 1 ? 'E - LEAVE THE LABYRINTH' : 'E - ASCEND';
   } else {
-    const fx = p.x + Math.cos(p.a) * 0.9, fy = p.y + Math.sin(p.a) * 0.9;
-    const c = cellAt(lvl, fx, fy);
-    if (c === T_DOOR || c === T_DOOR_LOCKED) {
-      const d = lvl.doors[(fy | 0) * lvl.w + (fx | 0)];
-      if (d && d.open < 0.1) hint = d.locked ? 'E - UNLOCK' : 'E - OPEN';
-    } else if (shopKindAt(c)) {
-      const shop = shopAtCell(lvl, fx, fy);
-      if (shop && (p.x | 0) === shop.fx && (p.y | 0) === shop.fy) hint = 'E - ' + SHOP_TITLE[shop.kind];
+    const npc = npcInFront();
+    if (npc) {
+      hint = 'E - ' + villagerName(npc);
+    } else {
+      const fx = p.x + Math.cos(p.a) * 0.9, fy = p.y + Math.sin(p.a) * 0.9;
+      const c = cellAt(lvl, fx, fy);
+      if (c === T_DOOR || c === T_DOOR_LOCKED) {
+        const d = lvl.doors[(fy | 0) * lvl.w + (fx | 0)];
+        if (d && d.open < 0.1) hint = d.locked ? 'E - UNLOCK' : 'E - OPEN';
+      } else if (shopKindAt(c)) {
+        const shop = shopAtCell(lvl, fx, fy);
+        if (shop && (p.x | 0) === shop.fx && (p.y | 0) === shop.fy) hint = 'E - ' + SHOP_TITLE[shop.kind];
+      }
     }
   }
   // sits above the shop plaque rather than across it

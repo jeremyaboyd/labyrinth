@@ -282,6 +282,17 @@ function drawKey(ctx, p) {
   p.px(7, 8, '#fff0a0');
 }
 
+// somebody's lost keepsake, wrapped in cloth with a glint at the knot
+function drawTrinket(ctx, p) {
+  p.rect(4, 8, 8, 6, '#7a5c38');
+  p.rect(5, 9, 6, 4, '#96754a');
+  p.line(4, 10, 11, 13, '#5c4426', 1);
+  p.line(4, 13, 11, 9, '#5c4426', 1);
+  p.disc(8, 7, 2, '#c9d2dc');
+  p.px(7, 6, '#ffffff');
+  p.px(9, 8, '#8a94a0');
+}
+
 function drawTorch(ctx, p, flame) {
   // bracket + handle
   p.rect(7, 14, 3, 8, '#5a3a1c');
@@ -591,6 +602,7 @@ function generateSprites() {
 
   SPRITES.gold = [makeSpriteFrame(16, 16, drawGold)];
   SPRITES.key = [makeSpriteFrame(16, 16, drawKey)];
+  SPRITES.trinket = [makeSpriteFrame(16, 16, drawTrinket)];
   SPRITES.torch = [
     makeSpriteFrame(16, 24, (c, p) => drawTorch(c, p, 0)),
     makeSpriteFrame(16, 24, (c, p) => drawTorch(c, p, 1)),

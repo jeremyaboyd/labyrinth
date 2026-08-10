@@ -55,6 +55,25 @@ function makeShopStock(kind, floorNum, rng) {
   return stock;
 }
 
+// A villager's pockets: a few sundries at village prices, dearer than the
+// windows below. Rolled from the villager's index so the same soul offers the
+// same goods all run; not persisted, so they restock when the floor reloads —
+// they are people, not shop windows.
+function villagerBarter(v) {
+  const rng = makeRng(((G.baseSeed ^ 0xB4B7E5) + v.line * 131) >>> 0);
+  const stock = [line('potionRed', 1 + rngInt(rng, 0, 1), rng)];
+  if (rng() < 0.5) stock.push(line('arrowBronze', 1 + rngInt(rng, 0, 1), rng));
+  if (rng() < 0.35) stock.push(line('potionBlue', 1, rng));
+  for (const l of stock) l.price = Math.round(l.price * 1.15);
+  return {
+    kind: 'barter',
+    idx: -1,
+    title: villagerName(v) + "'S POCKETS",
+    greeting: 'A FEW THINGS I CAN SPARE, FOR COIN.',
+    stock,
+  };
+}
+
 // Buy one line. Returns {ok, msg} — the message is always worth showing.
 function buyLine(shop, idx) {
   const p = G.player;

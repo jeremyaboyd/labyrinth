@@ -47,7 +47,7 @@ const SaveSys = (() => {
       equip: [p.equip.weapon || 0, p.equip.armor || 0, p.equip.ammo || 0],
       quests: p.quests,
       enemies: G.enemies.map(e => [e.type, r2(e.x), r2(e.y), Math.ceil(e.hp), e.state === 'chase' ? 1 : 0]),
-      items: G.items.map(it => [it.type, r2(it.x), r2(it.y), it.item || 0]),
+      items: G.items.map(it => [it.type, r2(it.x), r2(it.y), it.item || it.qid || 0]),
       doors: Object.entries(G.level.doors).map(([k, d]) => [+k, r2(d.open), d.locked ? 1 : 0]),
       shops: (G.level.shops || []).map(s => [s.idx, s.stock.map(l => l.n)]),
       explored: encodeExplored(G.explored),
@@ -120,11 +120,13 @@ const SaveSys = (() => {
         ammo: ITEMS[ammo] ? ammo : null,
       };
       syncEquipment(p);
-      // quests arrived after the first v2 saves, so treat them as optional
+      // quests arrived after the first v2 saves, so treat them as optional.
+      // Fetch errand defs ride in the save; restore them before filtering the
+      // log so their entries survive.
       if (d.quests && d.quests.log) {
-        p.quests = { active: d.quests.active || null, log: {} };
+        p.quests = { active: d.quests.active || null, log: {}, defs: d.quests.defs || {}, seq: d.quests.seq | 0 };
         for (const id in d.quests.log) {
-          if (QUESTS[id]) p.quests.log[id] = d.quests.log[id];
+          if (questDef(p, id)) p.quests.log[id] = d.quests.log[id];
         }
         if (p.quests.active && !p.quests.log[p.quests.active]) p.quests.active = null;
       }
@@ -139,8 +141,10 @@ const SaveSys = (() => {
     G.items = d.items.map(([type, x, y, item]) => {
       // v1 stored bare 'potion' pickups; they are crimson draughts now
       if (type === 'potion') return { type: 'item', item: 'potionRed', x, y, bob: Math.random() * 10 };
+      if (type === 'quest') return { type, qid: item, x, y, bob: Math.random() * 10 };
       return { type, item: item || undefined, x, y, bob: Math.random() * 10 };
-    }).filter(it => it.type !== 'item' || ITEMS[it.item]);
+    }).filter(it => (it.type !== 'item' || ITEMS[it.item])
+      && (it.type !== 'quest' || !!questDef(p, it.qid)));
     G.projectiles = [];
 
     for (const [idx, counts] of (d.shops || [])) {
