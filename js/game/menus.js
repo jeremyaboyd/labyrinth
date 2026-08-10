@@ -102,6 +102,7 @@ function drawDialogue() {
 
 // ---------- journal ----------
 const JOURNAL_ROWS_VISIBLE = 8;
+const ASCEND_ROWS_VISIBLE = 7;
 
 function openJournal() {
   G.journal = questList(G.player);
@@ -110,6 +111,71 @@ function openJournal() {
   G.menu.scroll = 0;
   G.state = 'journal';
   SFX.menuMove();
+}
+
+// ---------- climbing back out ----------
+// Every floor above you is one you walked to get here, so the whole climb is
+// on offer, nearest first.
+function ascendChoices() {
+  const out = [];
+  for (let n = G.player.floor - 1; n >= 0; n--) {
+    out.push({
+      floor: n,
+      label: n === 0 ? 'THE SURFACE' : 'FLOOR ' + n,
+      name: G.floorNames[n] || '',
+    });
+  }
+  return out;
+}
+
+function openAscend() {
+  G.ascend = ascendChoices();
+  if (!G.ascend.length) { SFX.denied(); return; }
+  G.menu.sel = 0;
+  G.menu.scroll = 0;
+  G.state = 'ascend';
+  SFX.menuMove();
+}
+
+function confirmAscend() {
+  const c = G.ascend[G.menu.sel];
+  if (!c) { G.state = 'play'; return; }
+  SFX.stairs();
+  G.state = 'transition';
+  G.transT = 0;
+  changeFloor(c.floor, 'exit'); // you come out at that floor's own stair down
+}
+
+function drawAscend() {
+  drawVignetteOverlay('#000000', 0.62);
+  drawPanel(10, 6, W - 20, VIEW_H - 16);
+  drawTextCentered(ctx, 'CLIMB BACK', W / 2, 12, '#c8a038', 1);
+  ctx.fillStyle = '#3a3028';
+  ctx.fillRect(18, 24, W - 36, 1);
+
+  const total = G.ascend.length;
+  const vis = Math.min(ASCEND_ROWS_VISIBLE, total);
+  const scrolls = total > vis;
+  const top = scrollWindow(G.menu.sel, total, vis, G.menu.scroll);
+  G.menu.scroll = top;
+
+  for (let r = 0; r < vis; r++) {
+    const i = top + r;
+    const c = G.ascend[i];
+    // 12px rows so a full nine-floor climb clears the footer below
+    const y = 32 + r * 12;
+    if (i === G.menu.sel) highlightRow(16, y, W - 32 - (scrolls ? 10 : 0));
+    drawText(ctx, c.label, 22, y, i === G.menu.sel ? '#ffe080' : '#b8ac98', 1);
+    if (c.name) drawRight(c.name, W - 24 - (scrolls ? 10 : 0), y, i === G.menu.sel ? '#c8a038' : '#6a6058');
+  }
+  if (scrolls) drawScrollbar(300, 29, vis * 12, top, total, vis);
+
+  const climb = G.player.floor - (G.ascend[G.menu.sel] ? G.ascend[G.menu.sel].floor : 0);
+  const y = VIEW_H - 36;
+  ctx.fillStyle = '#3a3028';
+  ctx.fillRect(18, y - 6, W - 36, 1);
+  drawText(ctx, climb === 1 ? 'ONE FLIGHT UP' : climb + ' FLIGHTS UP', 20, y, '#8a8078', 1);
+  drawRight('ENTER/E CLIMB   TAB STAY', W - 24, VIEW_H - 20, '#544c40');
 }
 
 function openQuestAction() {
@@ -252,6 +318,7 @@ function menuRowCount() {
     case 'hotlist': return G.hot.length;
     case 'shop': return G.shop.stock.length;
     case 'journal': return G.journal.length;
+    case 'ascend': return G.ascend.length;
     case 'questaction': return G.menu.actions.length;
     default: return 0;
   }

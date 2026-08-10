@@ -77,11 +77,13 @@ shops update still load — those runs simply keep their starting kit.
 - **Locked doors & keys** — most floors bar the way to the stairs with a locked
   door; the iron key is hidden somewhere in the reachable half of the maze.
 - **Stairs both ways** — every floor has a flight down at its far end and the
-  flight you arrived by at its head. Press `E` on either. Climbing out from
-  floor one puts you back in the castle courtyard, so you can carry the crown
-  home, restock at the village, and go down again. A floor you leave is rebuilt
-  from the seed when you return: the walls are where you left them, but the
-  monsters and the loot are not.
+  flight you arrived by at its head. Press `E` on either. The way down goes one
+  floor; the way up asks how far you mean to climb, and offers every floor
+  above you by name, so you can go straight from the deep to the castle
+  courtyard to carry the crown home and restock at the village. Ground you have
+  already walked stays lit — no fog on a floor you finished. The floor itself is
+  rebuilt from the seed when you return: the walls are where you left them, but
+  the monsters and the loot are not.
 - **Three foes** — giant rats (fast, weak), skeleton warriors (steady, armed),
   and dark wraiths (fast, vicious, glowing eyes). They wander until they see
   you, then they hunt.

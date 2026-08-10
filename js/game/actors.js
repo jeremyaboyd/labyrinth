@@ -129,11 +129,12 @@ function stairsUnderFoot() {
 }
 
 function takeStairs(dir) {
+  // down is always the next floor; up asks how far you mean to climb
+  if (dir === 'up') { openAscend(); return; }
   SFX.stairs();
   G.state = 'transition';
   G.transT = 0;
-  if (dir === 'down') nextFloor();
-  else prevFloor();
+  nextFloor();
 }
 
 // E: take the stairs you are on, speak to whoever is there, else open the

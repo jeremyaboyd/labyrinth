@@ -44,7 +44,10 @@ const G = {
   best: parseInt(localStorage.getItem('labyrinth.best') || '0', 10),
   stats: { kills: 0 },
   menu: { items: [], ids: [], sel: 0, scroll: 0, slots: null, actions: [], actionSel: 0, actionSlot: 0, optionsFrom: 'title' },
+  deepest: -1,    // deepest floor reached this run; anything at or above it is walked ground
+  floorNames: {}, // floor -> the name it was given, so the climb menu can list them
   shop: null,     // shop whose window is currently open
+  ascend: [],     // floors the climb menu is offering
   hot: [],        // quick-item rows, rebuilt each time Q is pressed
   journal: [],    // quest rows, rebuilt each time J is pressed
   dialogue: null, // who is speaking, and what they say
@@ -64,6 +67,10 @@ function loadFloor(n, arriveAt) {
   const lvl = n === 0 ? buildOverworld() : generateDungeon(n, (G.baseSeed + n * 7919) >>> 0);
   G.level = lvl;
   G.explored = new Uint8Array(lvl.w * lvl.h);
+  // ground you have already walked stays walked: no fog on a floor you finished
+  if (n <= G.deepest) G.explored.fill(1);
+  if (n > G.deepest) G.deepest = n;
+  G.floorNames[n] = lvl.name;
   const p = G.player;
   const spot = arriveAt === 'exit' ? lvl.exit : lvl.start;
   p.x = spot.x + 0.5;
@@ -104,6 +111,8 @@ function newGame() {
   G.stats.kills = 0;
   G.activeSlot = null;
   G.clock = CLOCK_START;
+  G.deepest = -1;   // so the surface itself is not treated as already walked
+  G.floorNames = {};
   loadFloor(0); // every run begins on the surface
   G.state = 'transition';
   G.transT = 0;
@@ -119,9 +128,6 @@ function changeFloor(n, arriveAt) {
 
 // down the stairs: you appear at the head of the new floor
 function nextFloor() { changeFloor(G.player.floor + 1, 'start'); }
-
-// back up them: you appear on the stair you originally came down
-function prevFloor() { changeFloor(G.player.floor - 1, 'exit'); }
 
 // ---------- menus ----------
 function openTitleMenu() {
@@ -373,6 +379,8 @@ function handlePress(code) {
       confirmShopBuy();
     } else if (G.state === 'dialogue') {
       endDialogue();
+    } else if (G.state === 'ascend') {
+      confirmAscend();
     } else if (G.state === 'journal') {
       openQuestAction();
     } else if (G.state === 'questaction') {
@@ -399,7 +407,7 @@ function handlePress(code) {
     else if (G.state === 'itemaction') G.state = 'inventory';
     else if (G.state === 'questaction' || G.state === 'questdetail') G.state = 'journal';
     else if (G.state === 'dialogue') endDialogue();
-    else if (['inventory', 'hotlist', 'shop', 'journal'].includes(G.state)) G.state = 'play';
+    else if (['inventory', 'hotlist', 'shop', 'journal', 'ascend'].includes(G.state)) G.state = 'play';
     return;
   }
   if (code === 'KeyM') { G.showMap = !G.showMap; return; }
@@ -492,6 +500,7 @@ function frame(t) {
   else if (G.state === 'hotlist') drawHotlist();
   else if (G.state === 'shop') drawShop();
   else if (G.state === 'journal') drawJournal();
+  else if (G.state === 'ascend') drawAscend();
   else if (G.state === 'questaction') drawQuestAction();
   else if (G.state === 'questdetail') drawQuestDetail();
   else if (G.state === 'dialogue') drawDialogue();
