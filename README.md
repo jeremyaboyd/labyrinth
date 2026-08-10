@@ -29,10 +29,11 @@ Then visit `http://localhost:8123`.
 | `I` | Open your pack (10 slots) |
 | `Q` | Quick items — drink without hunting through the pack |
 | `Shift` | Run |
-| `Tab` | Toggle map (fog of war) |
-| `M` | Toggle sound |
-| `Esc` | Pause menu (save / quit) |
+| `M` | Toggle map (fog of war) |
+| `Tab` | Pause menu, and back out of any screen |
 | `↑` `↓` + `Enter` | Navigate menus |
+
+Sound is toggled from OPTIONS, on both the title and pause menus.
 
 ## Saving
 

@@ -41,7 +41,7 @@ const G = {
   crownTaken: false,
   best: parseInt(localStorage.getItem('labyrinth.best') || '0', 10),
   stats: { kills: 0 },
-  menu: { items: [], ids: [], sel: 0, slots: null, actions: [], actionSel: 0, actionSlot: 0 },
+  menu: { items: [], ids: [], sel: 0, slots: null, actions: [], actionSel: 0, actionSlot: 0, optionsFrom: 'title' },
   shop: null, // shop whose window is currently open
   hot: [],    // quick-item rows, rebuilt each time Q is pressed
   activeSlot: null, // save slot this run writes to (null until saved/loaded)
@@ -104,18 +104,39 @@ function nextFloor() {
 // ---------- menus ----------
 function openTitleMenu() {
   const hasSaves = SaveSys.list().some(Boolean);
-  G.menu.ids = hasSaves ? ['continue', 'new', 'load'] : ['new', 'load'];
-  G.menu.items = hasSaves ? ['CONTINUE', 'NEW GAME', 'LOAD GAME'] : ['NEW GAME', 'LOAD GAME'];
+  G.menu.ids = hasSaves ? ['continue', 'new', 'load', 'options'] : ['new', 'load', 'options'];
+  G.menu.items = hasSaves
+    ? ['CONTINUE', 'NEW GAME', 'LOAD GAME', 'OPTIONS']
+    : ['NEW GAME', 'LOAD GAME', 'OPTIONS'];
   G.menu.sel = 0;
   G.state = 'title';
 }
 
 function openPauseMenu() {
-  G.menu.ids = ['resume', 'save', 'quit'];
-  G.menu.items = ['RESUME', 'SAVE GAME', 'QUIT TO TITLE'];
+  G.menu.ids = ['resume', 'save', 'options', 'quit'];
+  G.menu.items = ['RESUME', 'SAVE GAME', 'OPTIONS', 'QUIT TO TITLE'];
   G.menu.sel = 0;
   G.state = 'pause';
   Input.exitLock();
+}
+
+// ---------- options ----------
+function optionsLabels() {
+  return ['SOUND: ' + (Synth.enabled ? 'ON' : 'OFF'), 'BACK'];
+}
+
+function openOptions(from) {
+  G.menu.ids = ['sound', 'back'];
+  G.menu.items = optionsLabels();
+  G.menu.sel = 0;
+  G.menu.optionsFrom = from;
+  G.state = 'options';
+  Input.exitLock();
+}
+
+function closeOptions() {
+  if (G.menu.optionsFrom === 'pause') openPauseMenu();
+  else openTitleMenu();
 }
 
 function openSlotMenu(mode) { // 'loadmenu' | 'savemenu'
@@ -144,7 +165,7 @@ function menuMove(dir) {
     SFX.menuMove();
     return;
   }
-  if (G.state === 'title' || G.state === 'pause') {
+  if (G.state === 'title' || G.state === 'pause' || G.state === 'options') {
     const n = m.items.length;
     m.sel = ((m.sel + dir) % n + n) % n;
     SFX.menuMove();
@@ -242,6 +263,15 @@ function handlePress(code) {
       if (id === 'new') newGame();
       else if (id === 'continue') loadFromSlot(SaveSys.mostRecentSlot());
       else if (id === 'load') openSlotMenu('loadmenu');
+      else if (id === 'options') openOptions('title');
+    } else if (G.state === 'options') {
+      SFX.menuSelect();
+      if (G.menu.ids[G.menu.sel] === 'sound') {
+        Synth.toggle();
+        G.menu.items = optionsLabels(); // the label itself is the confirmation
+      } else {
+        closeOptions();
+      }
     } else if (G.state === 'loadmenu') {
       if (G.menu.slots[G.menu.sel]) loadFromSlot(G.menu.sel);
     } else if (G.state === 'savemenu') {
@@ -258,6 +288,7 @@ function handlePress(code) {
       SFX.menuSelect();
       if (id === 'resume') G.state = 'play';
       else if (id === 'save') openSlotMenu('savemenu');
+      else if (id === 'options') openOptions('pause');
       else if (id === 'quit') openTitleMenu(); // deliberately does not save
     } else if (G.state === 'inventory') {
       openItemAction();
@@ -275,21 +306,20 @@ function handlePress(code) {
     return;
   }
 
-  if (code === 'Escape') {
+  // Tab backs out of whatever is open. Escape mirrors it because the browser
+  // fires Escape to leave pointer lock whether the game asks for it or not,
+  // and a freed mouse with an unpaused game reads as a bug.
+  if (code === 'Tab' || code === 'Escape') {
     if (G.state === 'play') openPauseMenu();
     else if (G.state === 'pause') G.state = 'play';
     else if (G.state === 'loadmenu') openTitleMenu();
     else if (G.state === 'savemenu') openPauseMenu();
+    else if (G.state === 'options') closeOptions();
     else if (G.state === 'itemaction') G.state = 'inventory';
     else if (['inventory', 'hotlist', 'shop'].includes(G.state)) G.state = 'play';
     return;
   }
-  if (code === 'Tab') { G.showMap = !G.showMap; return; }
-  if (code === 'KeyM') {
-    const on = Synth.toggle();
-    addMsg(on ? 'SOUND ON' : 'SOUND OFF');
-    return;
-  }
+  if (code === 'KeyM') { G.showMap = !G.showMap; return; }
   if (code === 'KeyE' && G.state === 'play') useFront();
   if (code === 'Space' && G.state === 'play') startAttack();
 }
@@ -329,6 +359,13 @@ function frame(t) {
     return;
   }
 
+  // options reached from the title has no world behind it
+  if (G.state === 'options' && G.menu.optionsFrom === 'title') {
+    drawTitleBase();
+    drawOptions();
+    return;
+  }
+
   if (G.state === 'transition') {
     G.transT += dt;
     drawTransition();
@@ -358,13 +395,14 @@ function frame(t) {
     ctx.fillStyle = 'rgba(230,220,200,0.5)';
     ctx.fillRect(W / 2, VIEW_H / 2 - 2, 1, 5);
     ctx.fillRect(W / 2 - 2, VIEW_H / 2, 5, 1);
-    useHint();
+    if (G.state === 'play') useHint(); // a "press E" prompt over a menu is noise
   }
 
   drawHUD();
   if (G.showMap && (G.state === 'play' || G.state === 'pause')) drawMinimap();
 
   if (G.state === 'pause') drawPause();
+  else if (G.state === 'options') drawOptions();
   else if (G.state === 'savemenu') drawSlotMenu('SAVE GAME', G.menu.slots, G.menu.sel);
   else if (G.state === 'inventory') drawInventory();
   else if (G.state === 'itemaction') drawItemAction();

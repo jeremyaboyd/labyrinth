@@ -81,7 +81,7 @@ function drawHUD() {
   if (latest && PANEL_STATES.includes(G.state)) {
     drawText(ctx, latest.text, 8, VIEW_H + 31, '#c8b070', 1);
   } else {
-    drawText(ctx, 'TAB MAP  E USE  I PACK  Q QUICK', 8, VIEW_H + 31, '#4a4238', 1);
+    drawText(ctx, 'M MAP  E USE  I PACK  Q QUICK  TAB MENU', 8, VIEW_H + 31, '#4a4238', 1);
   }
 }
 
@@ -211,7 +211,7 @@ function drawSlotMenu(title, slots, sel) {
     if (i === sel) drawTextCentered(ctx, '> ' + label + ' <', W / 2, y, '#ffe080', 1);
     else drawTextCentered(ctx, label, W / 2, y, d ? '#8a8078' : '#4a4238', 1);
   });
-  drawTextCentered(ctx, 'ENTER SELECT   ESC BACK', W / 2, 118, '#544c40', 1);
+  drawTextCentered(ctx, 'ENTER SELECT   TAB BACK', W / 2, 118, '#544c40', 1);
 }
 
 // rotating dungeon backdrop + logo, shared by title and load screens
@@ -239,14 +239,14 @@ function drawTitleBase() {
 function drawTitle() {
   drawTitleBase();
 
-  drawTextCentered(ctx, 'THE CROWN OF THE DEEP LIES LOST', W / 2, 88, '#7a7268', 1);
-  drawTextCentered(ctx, 'ON THE 8TH FLOOR OF THE LABYRINTH.', W / 2, 98, '#7a7268', 1);
-  drawTextCentered(ctx, 'NONE WHO SOUGHT IT HAVE RETURNED.', W / 2, 108, '#7a7268', 1);
+  drawTextCentered(ctx, 'THE CROWN OF THE DEEP LIES LOST', W / 2, 80, '#7a7268', 1);
+  drawTextCentered(ctx, 'ON THE 8TH FLOOR OF THE LABYRINTH.', W / 2, 90, '#7a7268', 1);
+  drawTextCentered(ctx, 'NONE WHO SOUGHT IT HAVE RETURNED.', W / 2, 100, '#7a7268', 1);
 
-  drawMenuItems(G.menu.items, G.menu.sel, 126, 12);
+  drawMenuItems(G.menu.items, G.menu.sel, 114, 12);
 
   drawTextCentered(ctx, 'WASD MOVE   MOUSE OR ARROWS TURN   SHIFT RUN', W / 2, VIEW_H + 5, '#544c40', 1);
-  drawTextCentered(ctx, 'SPACE ATTACK   E USE   I PACK   Q QUICK   TAB MAP', W / 2, VIEW_H + 16, '#544c40', 1);
+  drawTextCentered(ctx, 'SPACE ATTACK   E USE   I PACK   Q QUICK   M MAP', W / 2, VIEW_H + 16, '#544c40', 1);
   if (G.best > 1) drawTextCentered(ctx, 'DEEPEST DELVE: FLOOR ' + G.best, W / 2, VIEW_H + 28, '#6a6058', 1);
 }
 
@@ -282,7 +282,16 @@ function drawWin() {
 
 function drawPause() {
   drawVignetteOverlay('#000000', 0.5);
-  drawTextCentered(ctx, 'PAUSED', W / 2, 56, '#e8d8a8', 2);
-  drawMenuItems(G.menu.items, G.menu.sel, 86, 13);
-  drawTextCentered(ctx, 'ESC RESUME', W / 2, 132, '#544c40', 1);
+  drawTextCentered(ctx, 'PAUSED', W / 2, 52, '#e8d8a8', 2);
+  drawMenuItems(G.menu.items, G.menu.sel, 82, 13);
+  drawTextCentered(ctx, 'TAB RESUME', W / 2, 138, '#544c40', 1);
+}
+
+// same box as the slot picker, so the two feel like siblings
+function drawOptions() {
+  drawVignetteOverlay('#000000', 0.6);
+  drawPanel(30, 40, W - 60, 92);
+  drawTextCentered(ctx, 'OPTIONS', W / 2, 50, '#c8a038', 1);
+  drawMenuItems(G.menu.items, G.menu.sel, 74, 16);
+  drawTextCentered(ctx, 'ENTER TOGGLE   TAB BACK', W / 2, 118, '#544c40', 1);
 }
