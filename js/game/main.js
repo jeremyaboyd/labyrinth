@@ -110,6 +110,7 @@ function openTitleMenu() {
     : ['NEW GAME', 'LOAD GAME', 'OPTIONS'];
   G.menu.sel = 0;
   G.state = 'title';
+  Input.exitLock(); // the only exit from a run: give the mouse back
 }
 
 function openPauseMenu() {
@@ -117,7 +118,8 @@ function openPauseMenu() {
   G.menu.items = ['RESUME', 'SAVE GAME', 'OPTIONS', 'QUIT TO TITLE'];
   G.menu.sel = 0;
   G.state = 'pause';
-  Input.exitLock();
+  // pointer lock is kept: every menu is keyboard driven, and dropping it
+  // would force a click to get mouse look back on the way out
 }
 
 // ---------- options ----------
@@ -131,7 +133,6 @@ function openOptions(from) {
   G.menu.sel = 0;
   G.menu.optionsFrom = from;
   G.state = 'options';
-  Input.exitLock();
 }
 
 function closeOptions() {

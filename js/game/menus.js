@@ -42,7 +42,6 @@ function highlightRow(x, y, w) {
 function openInventory() {
   G.menu.sel = 0;
   G.state = 'inventory';
-  Input.exitLock();
   SFX.menuMove();
 }
 
@@ -61,7 +60,6 @@ function openHotlist() {
   if (!G.hot.length) { addMsg('NOTHING TO DRINK'); SFX.denied(); return; }
   G.menu.sel = 0;
   G.state = 'hotlist';
-  Input.exitLock();
   SFX.menuMove();
 }
 
@@ -69,7 +67,6 @@ function openShop(shop) {
   G.shop = shop;
   G.menu.sel = 0;
   G.state = 'shop';
-  Input.exitLock();
   SFX.menuSelect(); // the greeting is the panel subtitle, not a floating message
 }
 
