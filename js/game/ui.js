@@ -141,8 +141,48 @@ function drawVignetteOverlay(color, alpha) {
   ctx.globalAlpha = 1;
 }
 
-function drawTitle() {
-  // slowly rotating dungeon backdrop
+// vertical menu list with a '>' selector
+function drawMenuItems(items, sel, yStart, spacing) {
+  items.forEach((label, i) => {
+    const y = yStart + i * spacing;
+    if (i === sel) {
+      drawTextCentered(ctx, '> ' + label + ' <', W / 2, y, '#ffe080', 1);
+    } else {
+      drawTextCentered(ctx, label, W / 2, y, '#8a8078', 1);
+    }
+  });
+}
+
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+function slotLabel(i, d) {
+  if (!d) return 'SLOT ' + (i + 1) + ' - EMPTY';
+  const dt = new Date(d.t);
+  return 'SLOT ' + (i + 1) + ' - FLOOR ' + d.floor + ' - GOLD ' + d.player.gold + ' - ' + MONTHS[dt.getMonth()] + ' ' + dt.getDate();
+}
+
+// slot picker over a dark panel (used by both load and save screens)
+function drawSlotMenu(title, slots, sel) {
+  drawVignetteOverlay('#000000', 0.6);
+  ctx.fillStyle = 'rgba(8,6,4,0.9)';
+  ctx.fillRect(30, 40, W - 60, 92);
+  ctx.fillStyle = '#6a5a40';
+  ctx.fillRect(30, 40, W - 60, 1);
+  ctx.fillRect(30, 131, W - 60, 1);
+  ctx.fillRect(30, 40, 1, 92);
+  ctx.fillRect(W - 31, 40, 1, 92);
+  drawTextCentered(ctx, title, W / 2, 50, '#c8a038', 1);
+  slots.forEach((d, i) => {
+    const y = 68 + i * 14;
+    const label = slotLabel(i, d);
+    if (i === sel) drawTextCentered(ctx, '> ' + label + ' <', W / 2, y, '#ffe080', 1);
+    else drawTextCentered(ctx, label, W / 2, y, d ? '#8a8078' : '#4a4238', 1);
+  });
+  drawTextCentered(ctx, 'ENTER SELECT   ESC BACK', W / 2, 118, '#544c40', 1);
+}
+
+// rotating dungeon backdrop + logo, shared by title and load screens
+function drawTitleBase() {
   G.titleAngle += 0.0035;
   const lvl = G.level;
   renderWorldView(lvl.start.x + 0.5, lvl.start.y + 0.5, G.titleAngle, 0);
@@ -161,16 +201,19 @@ function drawTitle() {
     ctx.drawImage(t.canvas, 44, 26, 32, 48);
     ctx.drawImage(t.canvas, 244, 26, 32, 48);
   }
+}
 
-  drawTextCentered(ctx, 'THE CROWN OF THE DEEP LIES LOST', W / 2, 92, '#7a7268', 1);
-  drawTextCentered(ctx, 'ON THE 8TH FLOOR OF THE LABYRINTH.', W / 2, 102, '#7a7268', 1);
-  drawTextCentered(ctx, 'NONE WHO SOUGHT IT HAVE RETURNED.', W / 2, 112, '#7a7268', 1);
+function drawTitle() {
+  drawTitleBase();
 
-  if (Math.sin(G.time * 4) > -0.3) {
-    drawTextCentered(ctx, 'PRESS ENTER', W / 2, 136, '#e8d8a8', 1);
-  }
-  drawTextCentered(ctx, 'WASD MOVE  MOUSE/ARROWS TURN  SPACE/CLICK ATTACK', W / 2, 154, '#544c40', 1);
-  if (G.best > 1) drawTextCentered(ctx, 'DEEPEST DELVE: FLOOR ' + G.best, W / 2, VIEW_H + 12, '#6a6058', 1);
+  drawTextCentered(ctx, 'THE CROWN OF THE DEEP LIES LOST', W / 2, 88, '#7a7268', 1);
+  drawTextCentered(ctx, 'ON THE 8TH FLOOR OF THE LABYRINTH.', W / 2, 98, '#7a7268', 1);
+  drawTextCentered(ctx, 'NONE WHO SOUGHT IT HAVE RETURNED.', W / 2, 108, '#7a7268', 1);
+
+  drawMenuItems(G.menu.items, G.menu.sel, 126, 12);
+
+  drawTextCentered(ctx, 'WASD MOVE  MOUSE/ARROWS TURN  SPACE/CLICK ATTACK  E USE', W / 2, VIEW_H + 6, '#544c40', 1);
+  if (G.best > 1) drawTextCentered(ctx, 'DEEPEST DELVE: FLOOR ' + G.best, W / 2, VIEW_H + 18, '#6a6058', 1);
 }
 
 function drawTransition() {
@@ -189,7 +232,7 @@ function drawDead() {
   drawTextCentered(ctx, 'YOU HAVE PERISHED', W / 2, 48, '#e03020', 2);
   drawTextCentered(ctx, 'FLOOR ' + G.player.floor + '   GOLD ' + G.player.gold + '   KILLS ' + G.stats.kills, W / 2, 80, '#c0b090', 1);
   drawTextCentered(ctx, 'THE LABYRINTH KEEPS ITS SECRETS.', W / 2, 96, '#7a7268', 1);
-  if (Math.sin(G.time * 4) > -0.3) drawTextCentered(ctx, 'PRESS ENTER TO DELVE AGAIN', W / 2, 124, '#e8d8a8', 1);
+  if (Math.sin(G.time * 4) > -0.3) drawTextCentered(ctx, 'PRESS ENTER', W / 2, 124, '#e8d8a8', 1);
 }
 
 function drawWin() {
@@ -205,6 +248,7 @@ function drawWin() {
 
 function drawPause() {
   drawVignetteOverlay('#000000', 0.5);
-  drawTextCentered(ctx, 'PAUSED', W / 2, 70, '#e8d8a8', 2);
-  drawTextCentered(ctx, 'ESC OR ENTER TO RESUME', W / 2, 96, '#8a8078', 1);
+  drawTextCentered(ctx, 'PAUSED', W / 2, 56, '#e8d8a8', 2);
+  drawMenuItems(G.menu.items, G.menu.sel, 86, 13);
+  drawTextCentered(ctx, 'ESC RESUME', W / 2, 132, '#544c40', 1);
 }

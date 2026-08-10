@@ -40,6 +40,8 @@ const G = {
   crownTaken: false,
   best: parseInt(localStorage.getItem('labyrinth.best') || '0', 10),
   stats: { kills: 0 },
+  menu: { items: [], ids: [], sel: 0, slots: null },
+  activeSlot: null, // save slot this run writes to (null until saved/loaded)
 };
 
 function addMsg(text) {
@@ -81,6 +83,7 @@ function newGame() {
   G.player = newPlayer();
   G.crownTaken = false;
   G.stats.kills = 0;
+  G.activeSlot = null;
   loadFloor(1);
   G.state = 'transition';
   G.transT = 0;
@@ -89,6 +92,60 @@ function newGame() {
 
 function nextFloor() {
   loadFloor(G.player.floor + 1);
+  if (G.activeSlot != null) {
+    if (SaveSys.write(G.activeSlot)) addMsg('AUTOSAVED TO SLOT ' + (G.activeSlot + 1));
+  }
+}
+
+// ---------- menus ----------
+function openTitleMenu() {
+  const hasSaves = SaveSys.list().some(Boolean);
+  G.menu.ids = hasSaves ? ['continue', 'new', 'load'] : ['new', 'load'];
+  G.menu.items = hasSaves ? ['CONTINUE', 'NEW GAME', 'LOAD GAME'] : ['NEW GAME', 'LOAD GAME'];
+  G.menu.sel = 0;
+  G.state = 'title';
+}
+
+function openPauseMenu() {
+  G.menu.ids = ['resume', 'save', 'quit'];
+  G.menu.items = ['RESUME', 'SAVE GAME', 'QUIT TO TITLE'];
+  G.menu.sel = 0;
+  G.state = 'pause';
+  Input.exitLock();
+}
+
+function openSlotMenu(mode) { // 'loadmenu' | 'savemenu'
+  G.menu.slots = SaveSys.list();
+  if (mode === 'loadmenu') {
+    const first = G.menu.slots.findIndex(Boolean);
+    if (first < 0) return; // nothing to load
+    G.menu.sel = first;
+  } else {
+    G.menu.sel = 0;
+  }
+  G.state = mode;
+}
+
+// move selection; in loadmenu only occupied slots are selectable
+function menuMove(dir) {
+  const m = G.menu;
+  const n = G.state === 'loadmenu' || G.state === 'savemenu' ? SaveSys.SLOTS : m.items.length;
+  for (let step = 1; step <= n; step++) {
+    const next = ((m.sel + dir * step) % n + n) % n;
+    if (G.state === 'loadmenu' && !m.slots[next]) continue;
+    m.sel = next;
+    break;
+  }
+  SFX.menuMove();
+}
+
+function loadFromSlot(slot) {
+  const d = SaveSys.read(slot);
+  if (!d || !SaveSys.restore(d)) { addMsg('SAVE IS CORRUPT'); return; }
+  G.activeSlot = slot;
+  G.state = 'transition';
+  G.transT = 0;
+  SFX.menuSelect();
 }
 
 // ---------- world rendering assembly ----------
@@ -132,17 +189,54 @@ function renderWorldView(camX, camY, camA, bob) {
 
 // ---------- input wiring ----------
 function handlePress(code) {
+  initAudio(); // idempotent; any keypress is a valid audio gesture
+
+  const inMenu = ['title', 'pause', 'loadmenu', 'savemenu'].includes(G.state);
+  if (inMenu) {
+    if (code === 'ArrowUp' || code === 'KeyW') { menuMove(-1); return; }
+    if (code === 'ArrowDown' || code === 'KeyS') { menuMove(1); return; }
+  }
+
   if (code === 'Enter') {
-    initAudio();
-    if (G.state === 'title') newGame();
-    else if (G.state === 'dead') newGame();
-    else if (G.state === 'win') { G.state = 'transition'; G.transT = 0; nextFloor(); }
-    else if (G.state === 'pause') G.state = 'play';
+    if (G.state === 'title') {
+      const id = G.menu.ids[G.menu.sel];
+      SFX.menuSelect();
+      if (id === 'new') newGame();
+      else if (id === 'continue') loadFromSlot(SaveSys.mostRecentSlot());
+      else if (id === 'load') openSlotMenu('loadmenu');
+    } else if (G.state === 'loadmenu') {
+      if (G.menu.slots[G.menu.sel]) loadFromSlot(G.menu.sel);
+    } else if (G.state === 'savemenu') {
+      if (SaveSys.write(G.menu.sel)) {
+        G.activeSlot = G.menu.sel;
+        addMsg('SAVED TO SLOT ' + (G.menu.sel + 1));
+        SFX.menuSelect();
+        G.state = 'play';
+      } else {
+        addMsg('SAVE FAILED');
+      }
+    } else if (G.state === 'pause') {
+      const id = G.menu.ids[G.menu.sel];
+      SFX.menuSelect();
+      if (id === 'resume') G.state = 'play';
+      else if (id === 'save') openSlotMenu('savemenu');
+      else if (id === 'quit') {
+        if (G.activeSlot != null && SaveSys.write(G.activeSlot)) addMsg('AUTOSAVED TO SLOT ' + (G.activeSlot + 1));
+        openTitleMenu();
+      }
+    } else if (G.state === 'dead') {
+      openTitleMenu();
+    } else if (G.state === 'win') {
+      G.state = 'transition'; G.transT = 0; nextFloor();
+    }
     return;
   }
+
   if (code === 'Escape') {
-    if (G.state === 'play') { G.state = 'pause'; Input.exitLock(); }
+    if (G.state === 'play') openPauseMenu();
     else if (G.state === 'pause') G.state = 'play';
+    else if (G.state === 'loadmenu') openTitleMenu();
+    else if (G.state === 'savemenu') openPauseMenu();
     return;
   }
   if (code === 'Tab') { G.showMap = !G.showMap; return; }
@@ -183,6 +277,12 @@ function frame(t) {
     return;
   }
 
+  if (G.state === 'loadmenu') {
+    drawTitleBase();
+    drawSlotMenu('LOAD GAME', G.menu.slots, G.menu.sel);
+    return;
+  }
+
   if (G.state === 'transition') {
     G.transT += dt;
     drawTransition();
@@ -205,7 +305,7 @@ function frame(t) {
   ctx.fillRect(0, 0, W, VIEW_H);
   ctx.putImageData(view.frameImg, sx, sy);
 
-  if (G.state === 'play' || G.state === 'pause') {
+  if (G.state === 'play' || G.state === 'pause' || G.state === 'savemenu') {
     drawWeapon();
     if (G.hurtT > 0) drawVignetteOverlay('#c02010', clamp(G.hurtT, 0, 0.35));
     // crosshair
@@ -220,6 +320,7 @@ function frame(t) {
   if (G.showMap && (G.state === 'play' || G.state === 'pause')) drawMinimap();
 
   if (G.state === 'pause') drawPause();
+  else if (G.state === 'savemenu') drawSlotMenu('SAVE GAME', G.menu.slots, G.menu.sel);
   else if (G.state === 'dead') drawDead();
   else if (G.state === 'win') drawWin();
 }
@@ -230,4 +331,5 @@ generateSprites();
 // backdrop level for the title screen
 G.player = newPlayer();
 loadFloor(1);
+openTitleMenu();
 requestAnimationFrame(frame);
