@@ -42,7 +42,6 @@ function highlightRow(x, y, w) {
 function openInventory() {
   G.menu.sel = 0;
   G.state = 'inventory';
-  Input.exitLock();
   SFX.menuMove();
 }
 
@@ -61,7 +60,6 @@ function openHotlist() {
   if (!G.hot.length) { addMsg('NOTHING TO DRINK'); SFX.denied(); return; }
   G.menu.sel = 0;
   G.state = 'hotlist';
-  Input.exitLock();
   SFX.menuMove();
 }
 
@@ -69,7 +67,6 @@ function openShop(shop) {
   G.shop = shop;
   G.menu.sel = 0;
   G.state = 'shop';
-  Input.exitLock();
   SFX.menuSelect(); // the greeting is the panel subtitle, not a floating message
 }
 
@@ -219,7 +216,7 @@ function drawInventory() {
   }
 
   drawText(ctx, 'GOLD ' + p.gold, 12, VIEW_H - 18, '#e8c040', 1);
-  drawRight('ENTER ACTIONS   I OR ESC CLOSE', W - 12, VIEW_H - 18, '#544c40');
+  drawRight('ENTER ACTIONS   I OR TAB CLOSE', W - 12, VIEW_H - 18, '#544c40');
 }
 
 // short stat readout shown in the pack and the shop
@@ -275,7 +272,7 @@ function drawHotlist() {
     drawText(ctx, (i + 1) + '. ' + d.name, x + 24, ry, i === G.menu.sel ? '#ffe080' : '#b8ac98', 1);
     drawRight('X' + e.n, x + w - 8, ry, '#8a8078');
   });
-  drawTextCentered(ctx, 'ENTER DRINK   Q OR ESC CLOSE', x + w / 2, y + h - 11, '#544c40', 1);
+  drawTextCentered(ctx, 'ENTER DRINK   Q OR TAB CLOSE', x + w / 2, y + h - 11, '#544c40', 1);
   drawText(ctx, 'HP ' + Math.ceil(p.hp) + '/' + p.maxHp + '   MP ' + Math.floor(p.mp) + '/' + p.maxMp,
     x + 8, y + 16, '#6a6058', 1);
 }
@@ -313,5 +310,5 @@ function drawShop() {
     if (d.blurb) drawText(ctx, d.blurb, 20, y + 10, '#5f584e', 1);
   }
   drawText(ctx, 'GOLD ' + p.gold, 20, VIEW_H - 20, '#e8c040', 1);
-  drawRight('ENTER BUY   ESC LEAVE', W - 24, VIEW_H - 20, '#544c40');
+  drawRight('ENTER BUY   TAB LEAVE', W - 24, VIEW_H - 20, '#544c40');
 }

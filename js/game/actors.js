@@ -232,8 +232,7 @@ function updatePlay(dt) {
       } else if (it.type === 'crown') {
         G.crownTaken = true;
         G.state = 'win';
-        Input.exitLock();
-        SFX.victory();
+        SFX.victory(); // the delve carries on, so the mouse stays captured
       }
       G.items.splice(i, 1);
     }
@@ -260,8 +259,7 @@ function updatePlay(dt) {
 
   if (p.hp <= 0) {
     G.state = 'dead';
-    Input.exitLock();
-    SFX.death();
+    SFX.death(); // released when Enter drops back to the title
   }
 }
 

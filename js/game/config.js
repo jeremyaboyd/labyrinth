@@ -42,9 +42,9 @@ const KEYS = {
 };
 
 // screens that pause the simulation and take menu input
-const MENU_STATES = ['title', 'pause', 'loadmenu', 'savemenu', 'inventory', 'itemaction', 'hotlist', 'shop'];
+const MENU_STATES = ['title', 'pause', 'loadmenu', 'savemenu', 'options', 'inventory', 'itemaction', 'hotlist', 'shop'];
 // screens drawn on top of a frozen first-person view
-const OVERLAY_STATES = ['pause', 'savemenu', 'inventory', 'itemaction', 'hotlist', 'shop'];
+const OVERLAY_STATES = ['pause', 'savemenu', 'options', 'inventory', 'itemaction', 'hotlist', 'shop'];
 // full-bleed panels: floating messages would land on their titles, so those
 // screens route the latest message to the HUD status line instead
 const PANEL_STATES = ['inventory', 'itemaction', 'shop'];
