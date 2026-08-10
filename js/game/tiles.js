@@ -50,8 +50,9 @@ const TILE_DEFS = {
   [T_WINDOW]: { glow: false }, // the clock turns this on and off
   [T_HDOOR]: {},
   [T_CASTLE]: {},
-  [T_TREE]: { noWall: true, prop: 'tree' },
-  [T_LAMP]: { noWall: true, prop: 'lamp' },
+  // only the trunk and the post block; the sea still fills its whole tile
+  [T_TREE]: { noWall: true, prop: 'tree', radius: 0.18 },
+  [T_LAMP]: { noWall: true, prop: 'lamp', radius: 0.12 },
   [T_WATER]: { noWall: true },
 };
 
