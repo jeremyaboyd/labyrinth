@@ -128,14 +128,8 @@ function stairsUnderFoot() {
   return null;
 }
 
-function takeStairs(dir) {
-  // down is always the next floor; up asks how far you mean to climb
-  if (dir === 'up') { openAscend(); return; }
-  SFX.stairs();
-  G.state = 'transition';
-  G.transT = 0;
-  nextFloor();
-}
+// either way, the stairwell asks how far you mean to go
+function takeStairs(dir) { openStairs(dir); }
 
 // E: take the stairs you are on, speak to whoever is there, else open the
 // door or shop window ahead

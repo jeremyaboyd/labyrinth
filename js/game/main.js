@@ -47,7 +47,8 @@ const G = {
   deepest: -1,    // deepest floor reached this run; anything at or above it is walked ground
   floorNames: {}, // floor -> the name it was given, so the climb menu can list them
   shop: null,     // shop whose window is currently open
-  ascend: [],     // floors the climb menu is offering
+  flights: [],    // floors the stair menu is offering
+  flightDir: 'up',// which way that menu is going
   hot: [],        // quick-item rows, rebuilt each time Q is pressed
   journal: [],    // quest rows, rebuilt each time J is pressed
   dialogue: null, // who is speaking, and what they say
@@ -379,8 +380,8 @@ function handlePress(code) {
       confirmShopBuy();
     } else if (G.state === 'dialogue') {
       endDialogue();
-    } else if (G.state === 'ascend') {
-      confirmAscend();
+    } else if (G.state === 'stairs') {
+      confirmStairs();
     } else if (G.state === 'journal') {
       openQuestAction();
     } else if (G.state === 'questaction') {
@@ -407,7 +408,7 @@ function handlePress(code) {
     else if (G.state === 'itemaction') G.state = 'inventory';
     else if (G.state === 'questaction' || G.state === 'questdetail') G.state = 'journal';
     else if (G.state === 'dialogue') endDialogue();
-    else if (['inventory', 'hotlist', 'shop', 'journal', 'ascend'].includes(G.state)) G.state = 'play';
+    else if (['inventory', 'hotlist', 'shop', 'journal', 'stairs'].includes(G.state)) G.state = 'play';
     return;
   }
   if (code === 'KeyM') { G.showMap = !G.showMap; return; }
@@ -500,7 +501,7 @@ function frame(t) {
   else if (G.state === 'hotlist') drawHotlist();
   else if (G.state === 'shop') drawShop();
   else if (G.state === 'journal') drawJournal();
-  else if (G.state === 'ascend') drawAscend();
+  else if (G.state === 'stairs') drawStairs();
   else if (G.state === 'questaction') drawQuestAction();
   else if (G.state === 'questdetail') drawQuestDetail();
   else if (G.state === 'dialogue') drawDialogue();

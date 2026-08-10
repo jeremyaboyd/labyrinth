@@ -43,10 +43,10 @@ const KEYS = {
 
 // screens that pause the simulation and take menu input
 const MENU_STATES = ['title', 'pause', 'loadmenu', 'savemenu', 'options', 'inventory', 'itemaction',
-  'hotlist', 'shop', 'journal', 'questaction', 'ascend'];
+  'hotlist', 'shop', 'journal', 'questaction', 'stairs'];
 // screens drawn on top of a frozen first-person view
 const OVERLAY_STATES = ['pause', 'savemenu', 'options', 'inventory', 'itemaction', 'hotlist', 'shop',
-  'journal', 'questaction', 'questdetail', 'dialogue', 'ascend'];
+  'journal', 'questaction', 'questdetail', 'dialogue', 'stairs'];
 // full-bleed panels: floating messages would land on their titles, so those
 // screens route the latest message to the HUD status line instead
-const PANEL_STATES = ['inventory', 'itemaction', 'shop', 'journal', 'questaction', 'questdetail', 'ascend'];
+const PANEL_STATES = ['inventory', 'itemaction', 'shop', 'journal', 'questaction', 'questdetail', 'stairs'];
