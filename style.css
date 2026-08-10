@@ -5,6 +5,8 @@ html, body {
   height: 100%;
   overflow: hidden;
   cursor: crosshair;
+  /* a pull-to-refresh mid-corridor would end a run; there is nothing to scroll */
+  overscroll-behavior: none;
 }
 #frame {
   position: fixed;

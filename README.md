@@ -42,10 +42,23 @@ two menus.
 On a phone or tablet the game grows gamepad-style touch controls: an 8-way
 pad on the left walks, a rocker on the right turns, and A/B/X/Y are
 use/attack/map/journal — with B doubling as BACK inside any menu, the way a
-gamepad's B does. The screen sits in a bezel between them, and the bezel
-carries the MENU (pause) pill. All of it is multi-touch, so you can walk,
-turn and shoot at once. Append `?touch=1` to the URL to force the controls
-on a desktop, or `?touch=0` to suppress them.
+gamepad's B does. A MENU (pause) pill sits above the buttons. All of it is
+multi-touch, so you can walk, turn and shoot at once. Append `?touch=1` to
+the URL to force the controls on a desktop, or `?touch=0` to suppress them.
+
+A handheld is held upright: the installed app asks the system for portrait,
+a plain browser tab tries the Orientation API, and if neither takes, turning
+the phone sideways puts up a rotate prompt rather than a squashed screen.
+The pads read the safe-area insets, so nothing hides under a notch or a
+home indicator.
+
+## Install it
+
+The game is a PWA: open it once and your browser will offer to add it to
+your home screen, where it opens fullscreen with no browser chrome. Every
+file is precached on install, so once it is there it plays with no network
+at all — on a plane, on the underground, anywhere. Shipping a new version
+bumps `VERSION` in `sw.js`, which is what evicts the old copy.
 
 ## Saving
 
@@ -145,7 +158,8 @@ shops update still load — those runs simply keep their starting kit.
   you edit the world. It is validated at load, so a miscounted row fails loudly
   instead of quietly corrupting the map.
 - All textures and sprites are generated procedurally at boot (no image
-  assets); text uses a hand-built 5×7 bitmap font.
+  assets); text uses a hand-built 5×7 bitmap font. The only images in the
+  repo are the home-screen icons, which a browser cannot ask a canvas for.
 - All sound is synthesized live with WebAudio (no audio assets): sword, doors,
   pickups, monster voices, and a slow minor-key ambient drone.
 - Mazes come from a recursive-backtracker with rooms carved on top for loops
