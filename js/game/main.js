@@ -43,7 +43,8 @@ const G = {
   crownTaken: false,
   best: parseInt(localStorage.getItem('labyrinth.best') || '0', 10),
   stats: { kills: 0 },
-  menu: { items: [], ids: [], sel: 0, scroll: 0, slots: null, actions: [], actionSel: 0, actionSlot: 0, optionsFrom: 'title' },
+  // cameFrom: which menu a sub-screen (options, help) was opened from
+  menu: { items: [], ids: [], sel: 0, scroll: 0, slots: null, actions: [], actionSel: 0, actionSlot: 0, cameFrom: 'title' },
   deepest: -1,    // deepest floor reached this run; anything at or above it is walked ground
   floorNames: {}, // floor -> the name it was given, so the climb menu can list them
   shop: null,     // shop whose window is currently open
@@ -133,18 +134,18 @@ function nextFloor() { changeFloor(G.player.floor + 1, 'start'); }
 // ---------- menus ----------
 function openTitleMenu() {
   const hasSaves = SaveSys.list().some(Boolean);
-  G.menu.ids = hasSaves ? ['continue', 'new', 'load', 'options'] : ['new', 'load', 'options'];
+  G.menu.ids = hasSaves ? ['continue', 'new', 'load', 'help', 'options'] : ['new', 'load', 'help', 'options'];
   G.menu.items = hasSaves
-    ? ['CONTINUE', 'NEW GAME', 'LOAD GAME', 'OPTIONS']
-    : ['NEW GAME', 'LOAD GAME', 'OPTIONS'];
+    ? ['CONTINUE', 'NEW GAME', 'LOAD GAME', 'HELP', 'OPTIONS']
+    : ['NEW GAME', 'LOAD GAME', 'HELP', 'OPTIONS'];
   G.menu.sel = 0;
   G.state = 'title';
   Input.exitLock(); // the only exit from a run: give the mouse back
 }
 
 function openPauseMenu() {
-  G.menu.ids = ['resume', 'save', 'options', 'quit'];
-  G.menu.items = ['RESUME', 'SAVE GAME', 'OPTIONS', 'QUIT TO TITLE'];
+  G.menu.ids = ['resume', 'save', 'help', 'options', 'quit'];
+  G.menu.items = ['RESUME', 'SAVE GAME', 'HELP', 'OPTIONS', 'QUIT TO TITLE'];
   G.menu.sel = 0;
   G.state = 'pause';
   // pointer lock is kept: every menu is keyboard driven, and dropping it
@@ -164,14 +165,27 @@ function openOptions(from) {
   G.menu.ids = ['sound', 'fog', 'back'];
   G.menu.items = optionsLabels();
   G.menu.sel = 0;
-  G.menu.optionsFrom = from;
+  G.menu.cameFrom = from;
   G.state = 'options';
 }
 
-function closeOptions() {
-  if (G.menu.optionsFrom === 'pause') openPauseMenu();
+// backing out of a sub-screen lands on the row that opened it
+function backToMenu(id) {
+  if (G.menu.cameFrom === 'pause') openPauseMenu();
   else openTitleMenu();
+  const i = G.menu.ids.indexOf(id);
+  if (i >= 0) G.menu.sel = i;
 }
+
+function closeOptions() { backToMenu('options'); }
+
+// ---------- help ----------
+function openHelp(from) {
+  G.menu.cameFrom = from;
+  G.state = 'help';
+}
+
+function closeHelp() { backToMenu('help'); }
 
 function openSlotMenu(mode) { // 'loadmenu' | 'savemenu'
   G.menu.slots = SaveSys.list();
@@ -339,7 +353,11 @@ function handlePress(code) {
       if (id === 'new') newGame();
       else if (id === 'continue') loadFromSlot(SaveSys.mostRecentSlot());
       else if (id === 'load') openSlotMenu('loadmenu');
+      else if (id === 'help') openHelp('title');
       else if (id === 'options') openOptions('title');
+    } else if (G.state === 'help') {
+      SFX.menuSelect();
+      closeHelp();
     } else if (G.state === 'options') {
       SFX.menuSelect();
       const id = G.menu.ids[G.menu.sel];
@@ -368,6 +386,7 @@ function handlePress(code) {
       SFX.menuSelect();
       if (id === 'resume') G.state = 'play';
       else if (id === 'save') openSlotMenu('savemenu');
+      else if (id === 'help') openHelp('pause');
       else if (id === 'options') openOptions('pause');
       else if (id === 'quit') openTitleMenu(); // deliberately does not save
     } else if (G.state === 'inventory') {
@@ -405,6 +424,7 @@ function handlePress(code) {
     else if (G.state === 'loadmenu') openTitleMenu();
     else if (G.state === 'savemenu') openPauseMenu();
     else if (G.state === 'options') closeOptions();
+    else if (G.state === 'help') closeHelp();
     else if (G.state === 'itemaction') G.state = 'inventory';
     else if (G.state === 'questaction' || G.state === 'questdetail') G.state = 'journal';
     else if (G.state === 'dialogue') endDialogue();
@@ -451,10 +471,10 @@ function frame(t) {
     return;
   }
 
-  // options reached from the title has no world behind it
-  if (G.state === 'options' && G.menu.optionsFrom === 'title') {
+  // options and help reached from the title have no world behind them
+  if ((G.state === 'options' || G.state === 'help') && G.menu.cameFrom === 'title') {
     drawTitleBase();
-    drawOptions();
+    if (G.state === 'help') drawHelp(); else drawOptions();
     return;
   }
 
@@ -495,6 +515,7 @@ function frame(t) {
 
   if (G.state === 'pause') drawPause();
   else if (G.state === 'options') drawOptions();
+  else if (G.state === 'help') drawHelp();
   else if (G.state === 'savemenu') drawSlotMenu('SAVE GAME', G.menu.slots, G.menu.sel);
   else if (G.state === 'inventory') drawInventory();
   else if (G.state === 'itemaction') drawItemAction();

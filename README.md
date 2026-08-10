@@ -35,7 +35,8 @@ Then visit `http://localhost:8123`.
 | `Tab` | Pause menu, and back out of any screen |
 | `↑` `↓` to move, `Enter` / numpad `Enter` / `E` to confirm | Navigate menus |
 
-Sound is toggled from OPTIONS, on both the title and pause menus.
+HELP, on both the title and pause menus, lists all of the above in game.
+Sound is toggled from OPTIONS, on the same two menus.
 
 ## Saving
 
