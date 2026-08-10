@@ -15,7 +15,10 @@ function drawWeapon() {
   const dip = p.moving ? Math.abs(Math.cos(p.bobPhase)) * 5 : 0;
   const scale = 1.8;
   const wsize = Math.round(96 * scale);
-  ctx.drawImage(set[frame], Math.round(W - 205 + sway), Math.round(VIEW_H - wsize - 4 + dip), wsize, wsize);
+  // the bow is drawn down its own line of flight, so it centres on the
+  // crosshair; everything else rides the bottom-right corner
+  const x = WEAPON_CENTRED[w.fp] ? (W - wsize) / 2 : W - 205;
+  ctx.drawImage(set[frame], Math.round(x + sway), Math.round(VIEW_H - wsize - 4 + dip), wsize, wsize);
 }
 
 function drawIcon(name, x, y, size) {

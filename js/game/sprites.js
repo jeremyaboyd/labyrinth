@@ -3,6 +3,7 @@
 
 const SPRITES = {}; // name -> array of {w,h,data:Uint32Array}
 const WEAPON_FRAMES = {}; // fp name -> 4 canvases for the first-person overlay
+const WEAPON_CENTRED = { bow: true }; // held on the sight line, not in the corner
 
 // tiny drawing kit on a 2d ctx (1 unit = 1 pixel)
 function P(ctx) {
@@ -444,15 +445,17 @@ function drawKing(ctx, p, pose) {
 
 // ---------------- first-person weapon ----------------
 
-// gauntleted fist + forearm running off the bottom-right corner
-function drawGauntlet(p, gx, gy) {
+// gauntleted fist + forearm running off the bottom corner. dir -1 sends the
+// arm out to the left instead, for the hand that holds the bow
+function drawGauntlet(p, gx, gy, dir) {
+  dir = dir || 1;
   p.rect(gx - 8, gy - 10, 16, 10, '#4a4e58');
   p.rect(gx - 7, gy - 9, 14, 8, '#6a707c');
   p.rect(gx - 7, gy - 9, 14, 2, '#8a92a0');
   for (let i = 0; i < 4; i++) p.rect(gx - 6 + i * 4, gy - 4, 3, 4, '#565c66');
-  p.line(gx + 4, gy + 2, gx + 22, gy + 18, '#4a4e58', 13);
-  p.line(gx + 6, gy + 4, gx + 22, gy + 16, '#6a707c', 8);
-  p.line(gx + 8, gy + 4, gx + 20, gy + 13, '#8a92a0', 3);
+  p.line(gx + 4 * dir, gy + 2, gx + 22 * dir, gy + 18, '#4a4e58', 13);
+  p.line(gx + 6 * dir, gy + 4, gx + 22 * dir, gy + 16, '#6a707c', 8);
+  p.line(gx + 8 * dir, gy + 4, gx + 20 * dir, gy + 13, '#8a92a0', 3);
 }
 
 function newWeaponCanvas() {
@@ -492,49 +495,79 @@ function drawSwordFrame(angleDeg, thrust, pal) {
   return c;
 }
 
-// pull 0..1 draws the string back; loosed hides the arrow and shakes the string
+// Seen from behind the archer rather than side-on: the bow stands across the
+// view, the string comes back toward the eye, and the arrow runs out through
+// the crosshair, which lands on (AIM_X, AIM_Y) once the frame is placed.
+// pull 0..1 draws the string back; loosed hides the arrow and shakes the string.
+const BOW_AIM_X = 48, BOW_AIM_Y = 54;
+
 function drawBowFrame(pull, loosed) {
   const { c, ctx, p } = newWeaponCanvas();
-  const MID_Y = 60, TIP_X = 45, TOP_Y = 14, BOT_Y = 106;
-  // limbs: a tall arc bowing away from the archer
-  for (let i = 0; i <= 90; i++) {
-    const a = -1.12 + (i / 90) * 2.24;
-    const x = 56 - Math.cos(a) * 26, y = MID_Y + Math.sin(a) * 51;
-    p.px(x + 2, y, '#3c2810');
-    p.px(x + 1, y, '#5c3c18');
-    p.px(x, y, '#8a5c28');
-    p.px(x - 1, y, '#a87038');
-    p.px(x - 2, y, '#6b4a20');
-  }
-  // horn nocks
-  p.disc(TIP_X, TOP_Y, 2.2, '#d8d0bc');
-  p.disc(TIP_X, BOT_Y, 2.2, '#d8d0bc');
-  // leather-wrapped riser where the bow hand sits
-  p.rect(52, MID_Y - 11, 6, 22, '#4a3218');
-  p.rect(53, MID_Y - 10, 4, 20, '#6b4a20');
+  // Canted 27 degrees the way an archer actually holds it: top limb out to the
+  // upper right, lower limb down toward the left hip.
+  const TILT = 27 * Math.PI / 180;
+  const ct = Math.cos(TILT), st = Math.sin(TILT);
+  const GX = 44, GY = 56; // the grip, just under the sight line
+  // The top limb shows its full length; the bottom one drops away toward the
+  // hip, so perspective forshortens it. BELLY is how far the stave bows forward.
+  const TOPL = 50, BOTL = 36, BELLY = 12;
+  // local stave coords (x across the stave, y along it) -> canvas
+  const rx = (x, y) => GX + x * ct - y * st;
+  const ry = (x, y) => GY + x * st + y * ct;
 
-  const nx = TIP_X + pull * 22;
-  const jitter = loosed ? 2 : 0;
-  p.line(TIP_X, TOP_Y, nx, MID_Y - jitter, '#e8e0cc', 1);
-  p.line(nx, MID_Y - jitter, TIP_X, BOT_Y, '#e8e0cc', 1);
-  if (loosed) {
-    // the string blurs into two as it snaps back
-    p.line(TIP_X, TOP_Y, nx, MID_Y + jitter, '#8a8478', 1);
-    p.line(nx, MID_Y + jitter, TIP_X, BOT_Y, '#8a8478', 1);
-  } else {
-    // nocked arrow, aimed away across the riser
-    p.line(nx, MID_Y, 18, MID_Y, '#8a6a44', 2);
-    p.line(nx - 2, MID_Y - 1, 20, MID_Y - 1, '#b08a5c', 1);
-    p.line(18, MID_Y, 7, MID_Y, '#c9d2dc', 3);
-    p.px(5, MID_Y, '#eef2f6');
-    p.line(nx - 3, MID_Y - 4, nx + 3, MID_Y, '#d8d0c0', 1);
-    p.line(nx - 3, MID_Y + 4, nx + 3, MID_Y, '#d8d0c0', 1);
+  // limbs: the belly bows toward the target, tips bend back to meet the string
+  for (let i = 0; i <= 240; i++) {
+    const t = i / 240; // 0 top tip .. 1 bottom tip
+    const lx = BELLY * (1 - Math.sin(Math.PI * t));
+    const ly = -TOPL + t * (TOPL + BOTL);
+    const bx = rx(lx, ly), by = ry(lx, ly);
+    const cols = (t < 0.1 || t > 0.9)
+      ? [[1, '#3c2810'], [0, '#5c3c18'], [-1, '#8a5c28']]
+      : [[2, '#3c2810'], [1, '#5c3c18'], [0, '#8a5c28'], [-1, '#a87038'], [-2, '#6b4a20']];
+    // thickness laid across the stave rather than across the screen
+    for (const [k, col] of cols) p.px(bx + k * ct, by + k * st, col);
   }
-  // bow hand clamped on the riser, string hand back at the nock
-  p.rect(48, MID_Y - 6, 14, 13, '#4a4e58');
-  p.rect(49, MID_Y - 5, 12, 11, '#6a707c');
-  p.rect(49, MID_Y - 5, 12, 2, '#8a92a0');
-  drawGauntlet(p, nx + 8, MID_Y + 18);
+  // horn nocks at the tips
+  const tipTX = rx(BELLY, -TOPL), tipTY = ry(BELLY, -TOPL);
+  const tipBX = rx(BELLY, BOTL), tipBY = ry(BELLY, BOTL);
+  p.disc(tipTX, tipTY, 2.2, '#d8d0bc');
+  p.disc(tipBX, tipBY, 2.2, '#d8d0bc');
+  // leather-wrapped riser, canted with the stave
+  p.line(rx(0, -13), ry(0, -13), rx(0, 13), ry(0, 13), '#4a3218', 6);
+  p.line(rx(0, -12), ry(0, -12), rx(0, 12), ry(0, 12), '#6b4a20', 4);
+
+  // the nock sits back by the cheek; drawing pulls it further back and down
+  const nx = BOW_AIM_X + 8 + pull * 14;
+  const ny = BOW_AIM_Y + 12 + pull * 18;
+  if (loosed) {
+    // the string snaps straight and blurs into two
+    const msx = (tipTX + tipBX) / 2, msy = (tipTY + tipBY) / 2;
+    p.line(tipTX, tipTY, msx - 2, msy, '#e8e0cc', 1);
+    p.line(msx - 2, msy, tipBX, tipBY, '#e8e0cc', 1);
+    p.line(tipTX, tipTY, msx + 2, msy, '#8a8478', 1);
+    p.line(msx + 2, msy, tipBX, tipBY, '#8a8478', 1);
+  } else {
+    p.line(tipTX, tipTY, nx, ny, '#e8e0cc', 1);
+    p.line(nx, ny, tipBX, tipBY, '#e8e0cc', 1);
+    // The nocked arrow runs away from the eye and out through the crosshair, so
+    // it thins as it goes: a fat shaft at the fletching, a point at the far end.
+    const mx = (nx + BOW_AIM_X) / 2, my = (ny + BOW_AIM_Y) / 2;
+    p.line(nx, ny, mx, my, '#7a5c38', 4);
+    p.line(nx - 1, ny - 1, mx, my - 1, '#b08a5c', 2);
+    p.line(mx, my, BOW_AIM_X + 2, BOW_AIM_Y + 2, '#8a6a44', 2);
+    // steel head, sitting right on the crosshair
+    p.line(BOW_AIM_X + 3, BOW_AIM_Y + 3, BOW_AIM_X, BOW_AIM_Y, '#9aa4b0', 3);
+    p.px(BOW_AIM_X, BOW_AIM_Y, '#eef2f6');
+    // fletching, splayed either side of the shaft at the near end
+    p.line(nx + 6, ny + 2, nx - 2, ny - 5, '#d8d0c0', 1);
+    p.line(nx + 6, ny + 5, nx - 1, ny - 1, '#a89c88', 1);
+    p.line(nx + 3, ny + 7, nx - 3, ny + 1, '#d8d0c0', 1);
+  }
+  // bow arm braced from the lower left, fist closed on the riser below the
+  // arrow's line of flight so the crosshair stays clear
+  drawGauntlet(p, GX - 2, GY + 14, -1);
+  // string hand back at the nock, forearm running off the bottom right
+  drawGauntlet(p, nx + 7, ny + 12, 1);
   return c;
 }
 
