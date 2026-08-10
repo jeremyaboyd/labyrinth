@@ -142,7 +142,9 @@ function useFront() {
 
   const npc = npcInFront();
   if (npc) {
-    startDialogue(npc.role === 'king' ? kingDialogue(p) : villagerDialogue(npc));
+    // the king holds his scripted audience; a villager offers talk or trade
+    if (npc.role === 'king') startDialogue(kingDialogue(p));
+    else openNpcMenu(npc);
     return;
   }
 
@@ -271,6 +273,8 @@ function updatePlay(dt) {
         p.keys++;
         addMsg('YOU FOUND AN IRON KEY');
         SFX.pickupKey();
+      } else if (it.type === 'quest') {
+        fetchPickup(p, it.qid); // somebody's keepsake, carried, not packed
       } else if (it.type === 'crown') {
         G.crownTaken = true;
         questComplete(p, 'crown');

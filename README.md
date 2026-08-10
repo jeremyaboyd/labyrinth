@@ -70,7 +70,14 @@ shops update still load — those runs simply keep their starting kit.
   Only one is tracked at a time, and the tracked one names itself in the top
   right and marks its destination on the map. Fog of war can be turned off in
   OPTIONS if you would rather see the whole world.
-- **People** — press `E` on a villager or the king to speak with them.
+- **People** — press `E` on a villager and choose to TALK or TRADE. Trading
+  opens their pockets: a few sundries at village prices. Talking may hand you
+  an errand — somebody has lost a keepsake, somewhere in Kingshore or down in
+  the labyrinth (never deeper than one floor past your deepest), and bringing
+  it back pays gold. Up to three errands can be outstanding at once; they live
+  in the journal like any quest, and the tracked one marks the keepsake — or,
+  once you carry it, the villager waiting for it — on the map. The king is
+  above bartering: `E` gets you his audience, as ever.
 - **Down into the dark** — the way below is in the castle courtyard, through
   the front gate. The clock keeps its own counsel once you are underground.
 - **Endless procedural labyrinths** — every floor below is a fresh maze of corridors
