@@ -251,6 +251,8 @@ function updatePlay(dt) {
     }
   }
 
+  G.clock = (G.clock + dt * HOURS_PER_SECOND) % 24;
+  updateVillagers(dt);
   updateEnemies(dt);
   updateProjectiles(dt);
 
@@ -260,6 +262,33 @@ function updatePlay(dt) {
   if (p.hp <= 0) {
     G.state = 'dead';
     SFX.death(); // released when Enter drops back to the title
+  }
+}
+
+// ---------- villagers: they mill about, and that is all ----------
+function makeVillager(x, y, i) {
+  return {
+    x, y, kind: i % 3,
+    dir: (i * 1.7) % (Math.PI * 2), dirT: 0,
+    walkPhase: i, moving: false, idle: false,
+  };
+}
+
+function updateVillagers(dt) {
+  const lvl = G.level;
+  for (const v of G.npcs) {
+    v.dirT -= dt;
+    if (v.dirT <= 0) {
+      v.dir = Math.random() * Math.PI * 2;
+      v.dirT = 1.5 + Math.random() * 3.5;
+      v.idle = Math.random() < 0.35; // pause for a chat now and then
+    }
+    if (v.idle) { v.moving = false; continue; }
+    const ox = v.x, oy = v.y;
+    tryMove(lvl, v, Math.cos(v.dir) * 0.85 * dt, Math.sin(v.dir) * 0.85 * dt, 0.28);
+    v.moving = Math.abs(v.x - ox) + Math.abs(v.y - oy) > 0.0005;
+    if (!v.moving) v.dirT = 0; // walked into a wall, try somewhere else
+    else v.walkPhase += dt * 5;
   }
 }
 

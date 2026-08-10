@@ -67,9 +67,11 @@ function drawHUD() {
   drawText(ctx, w ? w.name : 'BARE FISTS', 156, VIEW_H + 5, '#b8a890', 1);
   drawText(ctx, ar ? ar.name : 'NO ARMOUR', 156, VIEW_H + 19, ar ? '#9aa2b0' : '#5a5248', 1);
 
-  // depth
-  drawText(ctx, 'FLOOR ' + p.floor, 248, VIEW_H + 5, '#b8a890', 1);
-  drawText(ctx, 'BEST ' + G.best, 248, VIEW_H + 19, '#6a6058', 1);
+  // depth, or the time of day while you are still under the sky
+  const surface = p.floor === 0;
+  drawText(ctx, surface ? 'SURFACE' : 'FLOOR ' + p.floor, 248, VIEW_H + 5, '#b8a890', 1);
+  drawText(ctx, surface ? clockText(G.clock) + ' ' + dayPhase(G.clock) : 'BEST ' + G.best,
+    248, VIEW_H + 19, '#6a6058', 1);
 
   // key slot
   ctx.fillStyle = '#0e0b08';
@@ -130,7 +132,21 @@ function drawMinimap() {
     if (!G.explored[y * lvl.w + x]) continue;
     const c = lvl.map[y * lvl.w + x];
     let col;
-    if (c === 0) col = '#3c352a';
+    if (c === 0) {
+      // outdoors the ground itself is worth showing
+      const f = lvl.floorMap ? lvl.floorMap[y * lvl.w + x] : 0;
+      if (f === T_SAND) col = '#c8b088';
+      else if (f === T_ROAD) col = '#8a7050';
+      else if (f === T_COURT) col = '#7a7870';
+      else if (f === T_GRASS) col = '#3c6a30';
+      else col = '#3c352a';
+    }
+    else if (c === T_WATER) col = '#1c4a72';
+    else if (c === T_TREE) col = '#2a5c26';
+    else if (c === T_MOUNTAIN) col = '#6e6a66';
+    else if (c === T_LAMP) col = '#c8a038';
+    else if (c === T_CASTLE) col = '#9aa0a8';
+    else if (c === T_HOUSE || c === T_WINDOW || c === T_HDOOR) col = '#a8845c';
     else if (c === T_DOOR) col = '#a06a34';
     else if (c === T_DOOR_LOCKED) col = '#e0b020';
     else if (c === T_SHOP_POTION) col = '#a060d0';
@@ -256,8 +272,13 @@ function drawTransition() {
   const lvl = G.level;
   const a = clamp(G.transT / 0.4, 0, 1) * clamp((2.2 - G.transT) / 0.4, 0, 1);
   ctx.globalAlpha = a;
-  drawTextCentered(ctx, 'FLOOR ' + lvl.floorNum, W / 2, 76, '#c8a038', 2);
-  drawTextCentered(ctx, lvl.name, W / 2, 100, '#8a8078', 1);
+  if (lvl.floorNum === 0) {
+    drawTextCentered(ctx, lvl.name, W / 2, 76, '#c8a038', 2);
+    drawTextCentered(ctx, 'THE WAY DOWN LIES IN THE CASTLE', W / 2, 100, '#8a8078', 1);
+  } else {
+    drawTextCentered(ctx, 'FLOOR ' + lvl.floorNum, W / 2, 76, '#c8a038', 2);
+    drawTextCentered(ctx, lvl.name, W / 2, 100, '#8a8078', 1);
+  }
   ctx.globalAlpha = 1;
 }
 

@@ -335,6 +335,73 @@ function drawCrown(ctx, p, f) {
   else { p.px(18, 3, GL); p.px(2, 9, GL); }
 }
 
+// ---------------- surface world ----------------
+
+function drawTree(ctx, p, variant) {
+  const cx = 16;
+  p.rect(cx - 3, 30, 6, 26, '#4a3320');            // trunk
+  p.rect(cx - 3, 30, 2, 26, '#67482c');
+  p.line(cx - 3, 53, cx - 7, 56, '#4a3320', 2);    // roots
+  p.line(cx + 3, 53, cx + 7, 56, '#4a3320', 2);
+  const blobs = variant
+    ? [[16, 14, 11], [8, 22, 8], [24, 22, 8], [16, 26, 9]]
+    : [[16, 16, 12], [7, 24, 8], [25, 23, 9], [16, 29, 8]];
+  for (const [bx, by, br] of blobs) p.disc(bx, by, br, '#1d4a1c');
+  for (const [bx, by, br] of blobs) p.disc(bx - 1, by - 1.5, br * 0.78, '#2e6c26');
+  for (const [bx, by, br] of blobs) p.disc(bx - 2, by - 3, br * 0.42, '#418c32');
+}
+
+// flame < 0 draws the lamp cold
+function drawLamp(ctx, p, flame) {
+  p.rect(7, 16, 3, 31, '#3a3a42');   // post
+  p.rect(7, 16, 1, 31, '#565660');
+  p.rect(4, 45, 9, 3, '#2a2a30');    // footing
+  p.rect(4, 6, 9, 11, '#2a2a30');    // lantern housing
+  p.rect(5, 7, 7, 9, '#12121a');
+  p.rect(3, 4, 11, 2, '#3a3a42');    // cap
+  p.rect(7, 2, 3, 2, '#3a3a42');
+  if (flame >= 0) {
+    const fx = [0, -1, 1][flame];
+    p.disc(8 + fx * 0.4, 12.5, 3, '#c03808');
+    p.disc(8 + fx * 0.3, 11.5, 2.1, '#f07010');
+    p.disc(8, 10.5, 1.1, '#ffd040');
+    p.px(8 + fx, 9, '#fff0a0');
+  }
+}
+
+const VILLAGER_PALS = [
+  { tunic: '#8a4a3a', tunicL: '#a8604a', tunicD: '#5c3026', legs: '#4a4038', skin: '#c89a72', hair: '#4a3020' },
+  { tunic: '#3f5c7a', tunicL: '#557a9c', tunicD: '#2a3c50', legs: '#4a4038', skin: '#a87c58', hair: '#2c2018' },
+  { tunic: '#6a6a3a', tunicL: '#8a8a4e', tunicD: '#454526', legs: '#3f3830', skin: '#d8ab84', hair: '#7a6040' },
+];
+
+function drawVillager(ctx, p, pose, pal) {
+  const cx = 12;
+  const l = pose.leg, a = pose.arm;
+  p.line(cx - 2, 21, cx - 2 - l, 29, pal.legs, 3);   // legs
+  p.line(cx + 2, 21, cx + 2 + l, 29, pal.legs, 3);
+  p.rect(cx - 4 - l, 29, 4, 2, '#3a2a1c');           // boots
+  p.rect(cx + 1 + l, 29, 4, 2, '#3a2a1c');
+  for (let y = 11; y <= 22; y++) {                    // tunic
+    const half = 4 + (y - 11) * 0.26;
+    for (let x = Math.round(cx - half); x <= Math.round(cx + half); x++) {
+      const edge = Math.abs(x - cx) / half;
+      p.px(x, y, edge > 0.74 ? pal.tunicD : (edge < 0.3 ? pal.tunicL : pal.tunic));
+    }
+  }
+  p.rect(cx - 4, 19, 9, 1, '#4a3520');                // belt
+  p.line(cx - 4, 12, cx - 5 - a, 19, pal.tunicD, 2);  // arms
+  p.line(cx + 4, 12, cx + 5 + a, 19, pal.tunicD, 2);
+  p.px(cx - 5 - a, 20, pal.skin);
+  p.px(cx + 5 + a, 20, pal.skin);
+  p.disc(cx, 7, 3.6, pal.skin);                       // head
+  p.disc(cx, 4.8, 3.4, pal.hair);                     // hair
+  p.rect(cx - 4, 4, 9, 2, pal.hair);
+  p.px(cx - 2, 8, '#2a1a12');                         // eyes
+  p.px(cx + 2, 8, '#2a1a12');
+  p.px(cx, 10, '#a87858');                            // mouth
+}
+
 // ---------------- first-person weapon ----------------
 
 // gauntleted fist + forearm running off the bottom-right corner
@@ -494,6 +561,25 @@ function generateSprites() {
     makeSpriteFrame(20, 16, (c, p) => drawCrown(c, p, 0)),
     makeSpriteFrame(20, 16, (c, p) => drawCrown(c, p, 1)),
   ];
+
+  // ---- surface world props ----
+  SPRITES.tree = [
+    makeSpriteFrame(32, 56, (c, p) => drawTree(c, p, 0)),
+    makeSpriteFrame(32, 56, (c, p) => drawTree(c, p, 1)),
+  ];
+  SPRITES.lampOff = [makeSpriteFrame(16, 48, (c, p) => drawLamp(c, p, -1))];
+  SPRITES.lampOn = [
+    makeSpriteFrame(16, 48, (c, p) => drawLamp(c, p, 0)),
+    makeSpriteFrame(16, 48, (c, p) => drawLamp(c, p, 1)),
+    makeSpriteFrame(16, 48, (c, p) => drawLamp(c, p, 2)),
+  ];
+  VILLAGER_PALS.forEach((pal, i) => {
+    SPRITES['villager' + i] = [
+      makeSpriteFrame(24, 32, (c, p) => drawVillager(c, p, { leg: 1, arm: 1 }, pal)),
+      makeSpriteFrame(24, 32, (c, p) => drawVillager(c, p, { leg: -1, arm: -1 }, pal)),
+      makeSpriteFrame(24, 32, (c, p) => drawVillager(c, p, { leg: 0, arm: 0 }, pal)),
+    ];
+  });
 
   // ---- gear icons (also used as world billboards for dropped loot) ----
   for (const tier of ['bronze', 'iron', 'steel']) {
