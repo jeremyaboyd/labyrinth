@@ -43,6 +43,7 @@ const SaveSys = (() => {
       },
       inv: p.inv.map(s => (s ? [s.id, s.n] : 0)),
       equip: [p.equip.weapon || 0, p.equip.armor || 0, p.equip.ammo || 0],
+      quests: p.quests,
       enemies: G.enemies.map(e => [e.type, r2(e.x), r2(e.y), Math.ceil(e.hp), e.state === 'chase' ? 1 : 0]),
       items: G.items.map(it => [it.type, r2(it.x), r2(it.y), it.item || 0]),
       doors: Object.entries(G.level.doors).map(([k, d]) => [+k, r2(d.open), d.locked ? 1 : 0]),
@@ -113,6 +114,14 @@ const SaveSys = (() => {
         ammo: ITEMS[ammo] ? ammo : null,
       };
       syncEquipment(p);
+      // quests arrived after the first v2 saves, so treat them as optional
+      if (d.quests && d.quests.log) {
+        p.quests = { active: d.quests.active || null, log: {} };
+        for (const id in d.quests.log) {
+          if (QUESTS[id]) p.quests.log[id] = d.quests.log[id];
+        }
+        if (p.quests.active && !p.quests.log[p.quests.active]) p.quests.active = null;
+      }
     }
 
     G.enemies = d.enemies.map(([type, x, y, hp, chase]) => {

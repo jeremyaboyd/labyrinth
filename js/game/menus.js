@@ -72,6 +72,153 @@ function openShop(shop) {
   SFX.menuSelect(); // the greeting is the panel subtitle, not a floating message
 }
 
+// ---------- talking ----------
+function startDialogue(d) {
+  G.dialogue = { name: d.name, lines: d.lines, onEnd: d.onEnd || null };
+  G.state = 'dialogue';
+  SFX.talk();
+}
+
+function endDialogue() {
+  const end = G.dialogue && G.dialogue.onEnd;
+  G.dialogue = null;
+  G.state = 'play';
+  if (end) end(); // may hand out a quest, which posts its own message
+}
+
+function drawDialogue() {
+  const d = G.dialogue;
+  if (!d) return;
+  const h = 30 + d.lines.length * 10;
+  const y = VIEW_H - h - 10, x = 16, w = W - 32;
+  drawVignetteOverlay('#000000', 0.35);
+  drawPanel(x, y, w, h);
+  drawText(ctx, d.name, x + 8, y + 7, '#c8a038', 1);
+  ctx.fillStyle = '#3a3028';
+  ctx.fillRect(x + 8, y + 17, w - 16, 1);
+  d.lines.forEach((line, i) => drawText(ctx, line, x + 10, y + 23 + i * 10, '#d8ccb0', 1));
+  drawRight('ENTER/E CONTINUE', x + w - 8, y + h - 10, '#544c40');
+}
+
+// ---------- journal ----------
+const JOURNAL_ROWS_VISIBLE = 8;
+
+function openJournal() {
+  G.journal = questList(G.player);
+  if (!G.journal.length) { addMsg('YOUR JOURNAL IS EMPTY'); SFX.denied(); return; }
+  G.menu.sel = 0;
+  G.menu.scroll = 0;
+  G.state = 'journal';
+  SFX.menuMove();
+}
+
+function openQuestAction() {
+  const q = G.journal[G.menu.sel];
+  if (!q) { SFX.denied(); return; }
+  const acts = [];
+  if (!q.entry.done && G.player.quests.active !== q.id) acts.push({ id: 'active', label: 'SET ACTIVE' });
+  acts.push({ id: 'details', label: 'VIEW DETAILS' });
+  acts.push({ id: 'cancel', label: 'CLOSE' });
+  G.menu.actions = acts;
+  G.menu.actionSel = 0;
+  G.state = 'questaction';
+  SFX.menuSelect();
+}
+
+function confirmQuestAction() {
+  const q = G.journal[G.menu.sel];
+  const act = G.menu.actions[G.menu.actionSel];
+  if (!q || !act) { G.state = 'journal'; return; }
+  if (act.id === 'active') {
+    questSetActive(G.player, q.id);
+    addMsg('TRACKING: ' + q.def.name);
+    SFX.menuSelect();
+    G.state = 'journal';
+  } else if (act.id === 'details') {
+    G.state = 'questdetail';
+  } else {
+    G.state = 'journal';
+  }
+}
+
+function drawJournal() {
+  const p = G.player;
+  drawVignetteOverlay('#000000', 0.62);
+  drawPanel(10, 6, W - 20, VIEW_H - 16);
+  drawTextCentered(ctx, 'JOURNAL', W / 2, 12, '#c8a038', 1);
+  ctx.fillStyle = '#3a3028';
+  ctx.fillRect(18, 24, W - 36, 1);
+
+  const total = G.journal.length;
+  const vis = Math.min(JOURNAL_ROWS_VISIBLE, total);
+  const scrolls = total > vis;
+  const top = scrollWindow(G.menu.sel, total, vis, G.menu.scroll);
+  G.menu.scroll = top;
+
+  for (let r = 0; r < vis; r++) {
+    const i = top + r;
+    const q = G.journal[i];
+    const y = 32 + r * 13;
+    if (i === G.menu.sel) highlightRow(16, y, W - 32 - (scrolls ? 10 : 0));
+    const isActive = p.quests.active === q.id;
+    const tag = q.entry.done ? 'DONE' : (isActive ? 'ACTIVE' : '');
+    drawText(ctx, (isActive ? '> ' : '  ') + q.def.name, 22, y,
+      q.entry.done ? '#5f584e' : (i === G.menu.sel ? '#ffe080' : '#b8ac98'), 1);
+    if (tag) drawRight(tag, W - 24, y, q.entry.done ? '#4a6a48' : '#c8a038');
+  }
+  if (scrolls) drawScrollbar(300, 29, vis * 13, top, total, vis);
+
+  const sel = G.journal[G.menu.sel];
+  if (sel) {
+    const y = VIEW_H - 44;
+    ctx.fillStyle = '#3a3028';
+    ctx.fillRect(18, y - 6, W - 36, 1);
+    drawText(ctx, 'FROM ' + sel.def.from, 20, y, '#6a6058', 1);
+    drawText(ctx, sel.def.steps[Math.max(0, sel.entry.revealed - 1)], 20, y + 10, '#8a8078', 1);
+  }
+  drawRight('ENTER/E OPTIONS   J OR TAB CLOSE', W - 24, VIEW_H - 20, '#544c40');
+}
+
+function drawQuestAction() {
+  drawJournal();
+  const acts = G.menu.actions;
+  const q = G.journal[G.menu.sel];
+  const h = acts.length * 12 + 22;
+  const x = 88, y = Math.round((VIEW_H - h) / 2), w = 144;
+  drawPanel(x, y, w, h);
+  drawTextCentered(ctx, q ? q.def.hint : '', x + w / 2, y + 6, '#c8a038', 1);
+  acts.forEach((a, i) => {
+    const ry = y + 18 + i * 12;
+    if (i === G.menu.actionSel) highlightRow(x + 4, ry, w - 8);
+    drawTextCentered(ctx, a.label, x + w / 2, ry, i === G.menu.actionSel ? '#ffe080' : '#8a8078', 1);
+  });
+}
+
+// only what the story has actually told you so far
+function drawQuestDetail() {
+  const q = G.journal[G.menu.sel];
+  drawVignetteOverlay('#000000', 0.66);
+  drawPanel(14, 20, W - 28, VIEW_H - 46);
+  if (!q) return;
+  drawTextCentered(ctx, q.def.name, W / 2, 28, '#c8a038', 1);
+  ctx.fillStyle = '#3a3028';
+  ctx.fillRect(22, 40, W - 44, 1);
+  drawText(ctx, 'FROM ' + q.def.from, 24, 46, '#6a6058', 1);
+  let y = 60;
+  for (let i = 0; i < q.entry.revealed && i < q.def.steps.length; i++) {
+    const known = i === q.entry.revealed - 1;
+    for (const line of wrapText(q.def.steps[i], W - 60, 2)) {
+      drawText(ctx, line, 28, y, known ? '#d8ccb0' : '#8a8078', 1);
+      y += 10;
+    }
+    y += 2;
+  }
+  if (q.entry.revealed < q.def.steps.length) {
+    drawText(ctx, '...THE REST IS NOT YET KNOWN.', 28, y + 2, '#544c40', 1);
+  }
+  drawTextCentered(ctx, q.entry.done ? 'COMPLETE' : 'TAB BACK', W / 2, VIEW_H - 32, '#544c40', 1);
+}
+
 function itemActions(slot) {
   const s = G.player.inv[slot];
   if (!s) return null;
@@ -104,12 +251,14 @@ function menuRowCount() {
     case 'itemaction': return G.menu.actions.length;
     case 'hotlist': return G.hot.length;
     case 'shop': return G.shop.stock.length;
+    case 'journal': return G.journal.length;
+    case 'questaction': return G.menu.actions.length;
     default: return 0;
   }
 }
 
 function menuSelRef(dir) {
-  if (G.state === 'itemaction') {
+  if (G.state === 'itemaction' || G.state === 'questaction') {
     const n = G.menu.actions.length;
     G.menu.actionSel = ((G.menu.actionSel + dir) % n + n) % n;
   } else {

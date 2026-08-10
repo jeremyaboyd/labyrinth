@@ -29,6 +29,7 @@ Then visit `http://localhost:8123`.
 | `E` | Open / unlock doors, trade at a shop window |
 | `I` | Open your pack (10 slots) |
 | `Q` | Quick items — drink without hunting through the pack |
+| `J` | Journal — your quests, and which one you are tracking |
 | `Shift` | Run |
 | `M` | Toggle map (fog of war) |
 | `Tab` | Pause menu, and back out of any screen |
@@ -61,6 +62,13 @@ shops update still load — those runs simply keep their starting kit.
   stars to sunrise to blue to a red sunset and back, the land brightens and
   darkens with it, the lamp posts light at dusk and go out at dawn, and cottage
   windows glow from 6pm until 11pm.
+- **Quests** — you begin under a royal summons. Find the king in the castle
+  courtyard, hear him out, and he sets you after the crown. `J` opens the
+  journal: pick a quest to set it active or read what you have learned so far.
+  Only one is tracked at a time, and the tracked one names itself in the top
+  right and marks its destination on the map. Fog of war can be turned off in
+  OPTIONS if you would rather see the whole world.
+- **People** — press `E` on a villager or the king to speak with them.
 - **Down into the dark** — the way below is in the castle courtyard, through
   the front gate. The clock keeps its own counsel once you are underground.
 - **Endless procedural labyrinths** — every floor below is a fresh maze of corridors

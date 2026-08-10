@@ -29,6 +29,9 @@ const SFX = {
   boltHit() { Synth.tone('square', 340, 90, 0.18, 0.24); Synth.noise(0.16, 0.22, 200, 2200); },
   buy() { Synth.tone('square', 780, 780, 0.06, 0.16); Synth.tone('square', 1040, 1040, 0.07, 0.16, 0.06); Synth.tone('square', 1560, 1560, 0.12, 0.14, 0.13); },
   equip() { Synth.noise(0.1, 0.2, 500, 2600); Synth.tone('square', 300, 420, 0.08, 0.14); },
+  quest() { [523, 659, 784].forEach((f, i) => Synth.tone('triangle', f, f, 0.16, 0.16, i * 0.09)); },
+  questDone() { [659, 784, 988, 1319].forEach((f, i) => Synth.tone('square', f, f, 0.16, 0.15, i * 0.1)); },
+  talk() { Synth.tone('square', 300, 360, 0.05, 0.09); Synth.tone('square', 380, 340, 0.05, 0.08, 0.05); },
   menuMove() { Synth.tone('square', 440, 440, 0.04, 0.08); },
   menuSelect() { Synth.tone('square', 660, 660, 0.06, 0.12); Synth.tone('square', 880, 880, 0.08, 0.12, 0.06); },
   victory() {

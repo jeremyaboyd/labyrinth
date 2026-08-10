@@ -44,8 +44,11 @@ const G = {
   best: parseInt(localStorage.getItem('labyrinth.best') || '0', 10),
   stats: { kills: 0 },
   menu: { items: [], ids: [], sel: 0, scroll: 0, slots: null, actions: [], actionSel: 0, actionSlot: 0, optionsFrom: 'title' },
-  shop: null, // shop whose window is currently open
-  hot: [],    // quick-item rows, rebuilt each time Q is pressed
+  shop: null,     // shop whose window is currently open
+  hot: [],        // quick-item rows, rebuilt each time Q is pressed
+  journal: [],    // quest rows, rebuilt each time J is pressed
+  dialogue: null, // who is speaking, and what they say
+  fogOfWar: true,
   activeSlot: null, // save slot this run writes to (null until saved/loaded)
 };
 
@@ -76,7 +79,7 @@ function loadFloor(n) {
   G.enemies = lvl.spawns.map(s => makeEnemy(s.type, s.x, s.y));
   G.items = lvl.items.map(it => ({ ...it, bob: Math.random() * 10 }));
   G.projectiles = [];
-  G.npcs = (lvl.villagers || []).map((v, i) => makeVillager(v.x, v.y, i));
+  G.npcs = (lvl.villagers || []).map((v, i) => makeVillager(v.x, v.y, i, v.role));
   if (n > G.best) { G.best = n; localStorage.setItem('labyrinth.best', String(n)); }
 }
 
@@ -93,6 +96,7 @@ function makeEnemy(type, x, y) {
 function newGame() {
   G.baseSeed = (Math.random() * 1e9) | 0;
   G.player = newPlayer();
+  questsOnNewGame(G.player);
   G.crownTaken = false;
   G.stats.kills = 0;
   G.activeSlot = null;
@@ -133,11 +137,15 @@ function openPauseMenu() {
 
 // ---------- options ----------
 function optionsLabels() {
-  return ['SOUND: ' + (Synth.enabled ? 'ON' : 'OFF'), 'BACK'];
+  return [
+    'SOUND: ' + (Synth.enabled ? 'ON' : 'OFF'),
+    'FOG OF WAR: ' + (G.fogOfWar ? 'ON' : 'OFF'),
+    'BACK',
+  ];
 }
 
 function openOptions(from) {
-  G.menu.ids = ['sound', 'back'];
+  G.menu.ids = ['sound', 'fog', 'back'];
   G.menu.items = optionsLabels();
   G.menu.sel = 0;
   G.menu.optionsFrom = from;
@@ -209,7 +217,7 @@ function buildBillboards() {
     }
   }
   for (const v of G.npcs) {
-    const frames = SPRITES['villager' + v.kind];
+    const frames = v.role === 'king' ? SPRITES.king : SPRITES['villager' + v.kind];
     const fi = v.moving ? ((v.walkPhase | 0) % 2 + 2) % 2 : 2;
     out.push({ x: v.x, y: v.y, img: frames[fi], hFrac: 0.8, zOff: 0, glow: false });
   }
@@ -299,6 +307,11 @@ function handlePress(code) {
     else if (G.state === 'hotlist') G.state = 'play';
     return;
   }
+  if (code === 'KeyJ') {
+    if (G.state === 'play') openJournal();
+    else if (G.state === 'journal') G.state = 'play';
+    return;
+  }
 
   if (isConfirm(code)) {
     if (G.state === 'title') {
@@ -310,9 +323,13 @@ function handlePress(code) {
       else if (id === 'options') openOptions('title');
     } else if (G.state === 'options') {
       SFX.menuSelect();
-      if (G.menu.ids[G.menu.sel] === 'sound') {
+      const id = G.menu.ids[G.menu.sel];
+      if (id === 'sound') {
         Synth.toggle();
         G.menu.items = optionsLabels(); // the label itself is the confirmation
+      } else if (id === 'fog') {
+        G.fogOfWar = !G.fogOfWar;
+        G.menu.items = optionsLabels();
       } else {
         closeOptions();
       }
@@ -342,6 +359,14 @@ function handlePress(code) {
       useHotlistEntry(G.menu.sel);
     } else if (G.state === 'shop') {
       confirmShopBuy();
+    } else if (G.state === 'dialogue') {
+      endDialogue();
+    } else if (G.state === 'journal') {
+      openQuestAction();
+    } else if (G.state === 'questaction') {
+      confirmQuestAction();
+    } else if (G.state === 'questdetail') {
+      G.state = 'journal';
     } else if (G.state === 'dead') {
       openTitleMenu();
     } else if (G.state === 'win') {
@@ -360,7 +385,9 @@ function handlePress(code) {
     else if (G.state === 'savemenu') openPauseMenu();
     else if (G.state === 'options') closeOptions();
     else if (G.state === 'itemaction') G.state = 'inventory';
-    else if (['inventory', 'hotlist', 'shop'].includes(G.state)) G.state = 'play';
+    else if (G.state === 'questaction' || G.state === 'questdetail') G.state = 'journal';
+    else if (G.state === 'dialogue') endDialogue();
+    else if (['inventory', 'hotlist', 'shop', 'journal'].includes(G.state)) G.state = 'play';
     return;
   }
   if (code === 'KeyM') { G.showMap = !G.showMap; return; }
@@ -439,7 +466,7 @@ function frame(t) {
     ctx.fillStyle = 'rgba(230,220,200,0.5)';
     ctx.fillRect(W / 2, VIEW_H / 2 - 2, 1, 5);
     ctx.fillRect(W / 2 - 2, VIEW_H / 2, 5, 1);
-    if (G.state === 'play') useHint(); // a "press E" prompt over a menu is noise
+    if (G.state === 'play') { useHint(); drawActiveQuest(); }
   }
 
   drawHUD();
@@ -452,6 +479,10 @@ function frame(t) {
   else if (G.state === 'itemaction') drawItemAction();
   else if (G.state === 'hotlist') drawHotlist();
   else if (G.state === 'shop') drawShop();
+  else if (G.state === 'journal') drawJournal();
+  else if (G.state === 'questaction') drawQuestAction();
+  else if (G.state === 'questdetail') drawQuestDetail();
+  else if (G.state === 'dialogue') drawDialogue();
   else if (G.state === 'dead') drawDead();
   else if (G.state === 'win') drawWin();
 
