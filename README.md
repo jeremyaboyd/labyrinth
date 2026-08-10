@@ -31,7 +31,7 @@ Then visit `http://localhost:8123`.
 | `Shift` | Run |
 | `M` | Toggle map (fog of war) |
 | `Tab` | Pause menu, and back out of any screen |
-| `↑` `↓` + `Enter` | Navigate menus |
+| `↑` `↓` to move, `Enter` / numpad `Enter` / `E` to confirm | Navigate menus |
 
 Sound is toggled from OPTIONS, on both the title and pause menus.
 

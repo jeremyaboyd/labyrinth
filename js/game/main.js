@@ -231,6 +231,13 @@ function renderWorldView(camX, camY, camA, bob) {
 }
 
 // ---------- input wiring ----------
+// Menus confirm on Enter, numpad Enter, or E. E is the world's "use" key, so
+// it only confirms once we are out of play and there is nothing to use.
+function isConfirm(code) {
+  if (code === 'Enter' || code === 'NumpadEnter') return true;
+  return code === 'KeyE' && G.state !== 'play';
+}
+
 function handlePress(code) {
   initAudio(); // idempotent; any keypress is a valid audio gesture
 
@@ -257,7 +264,7 @@ function handlePress(code) {
     return;
   }
 
-  if (code === 'Enter') {
+  if (isConfirm(code)) {
     if (G.state === 'title') {
       const id = G.menu.ids[G.menu.sel];
       SFX.menuSelect();

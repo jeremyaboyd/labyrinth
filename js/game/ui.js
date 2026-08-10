@@ -211,7 +211,7 @@ function drawSlotMenu(title, slots, sel) {
     if (i === sel) drawTextCentered(ctx, '> ' + label + ' <', W / 2, y, '#ffe080', 1);
     else drawTextCentered(ctx, label, W / 2, y, d ? '#8a8078' : '#4a4238', 1);
   });
-  drawTextCentered(ctx, 'ENTER SELECT   TAB BACK', W / 2, 118, '#544c40', 1);
+  drawTextCentered(ctx, 'ENTER/E SELECT   TAB BACK', W / 2, 118, '#544c40', 1);
 }
 
 // rotating dungeon backdrop + logo, shared by title and load screens
@@ -266,7 +266,7 @@ function drawDead() {
   drawTextCentered(ctx, 'YOU HAVE PERISHED', W / 2, 48, '#e03020', 2);
   drawTextCentered(ctx, 'FLOOR ' + G.player.floor + '   GOLD ' + G.player.gold + '   KILLS ' + G.stats.kills, W / 2, 80, '#c0b090', 1);
   drawTextCentered(ctx, 'THE LABYRINTH KEEPS ITS SECRETS.', W / 2, 96, '#7a7268', 1);
-  if (Math.sin(G.time * 4) > -0.3) drawTextCentered(ctx, 'PRESS ENTER', W / 2, 124, '#e8d8a8', 1);
+  if (Math.sin(G.time * 4) > -0.3) drawTextCentered(ctx, 'PRESS ENTER OR E', W / 2, 124, '#e8d8a8', 1);
 }
 
 function drawWin() {
@@ -277,7 +277,7 @@ function drawWin() {
   drawTextCentered(ctx, 'THE CROWN IS YOURS', W / 2, 82, '#f0c030', 2);
   drawTextCentered(ctx, 'GOLD ' + G.player.gold + '   KILLS ' + G.stats.kills, W / 2, 110, '#c0b090', 1);
   drawTextCentered(ctx, 'YET THE STAIRS DESCEND FURTHER...', W / 2, 126, '#7a7268', 1);
-  if (Math.sin(G.time * 4) > -0.3) drawTextCentered(ctx, 'PRESS ENTER TO DELVE DEEPER', W / 2, 146, '#e8d8a8', 1);
+  if (Math.sin(G.time * 4) > -0.3) drawTextCentered(ctx, 'PRESS ENTER OR E TO DELVE DEEPER', W / 2, 146, '#e8d8a8', 1);
 }
 
 function drawPause() {
@@ -293,5 +293,5 @@ function drawOptions() {
   drawPanel(30, 40, W - 60, 92);
   drawTextCentered(ctx, 'OPTIONS', W / 2, 50, '#c8a038', 1);
   drawMenuItems(G.menu.items, G.menu.sel, 74, 16);
-  drawTextCentered(ctx, 'ENTER TOGGLE   TAB BACK', W / 2, 118, '#544c40', 1);
+  drawTextCentered(ctx, 'ENTER/E TOGGLE   TAB BACK', W / 2, 118, '#544c40', 1);
 }

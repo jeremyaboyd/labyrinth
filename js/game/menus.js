@@ -165,7 +165,8 @@ function confirmShopBuy() {
 }
 
 // ---------- drawing ----------
-function slotRowY(i) { return 22 + i * 13; }
+// ten rows have to clear the GOLD line at the foot of the panel
+function slotRowY(i) { return 20 + i * 12; }
 
 function drawInventory() {
   const p = G.player;
@@ -216,7 +217,7 @@ function drawInventory() {
   }
 
   drawText(ctx, 'GOLD ' + p.gold, 12, VIEW_H - 18, '#e8c040', 1);
-  drawRight('ENTER ACTIONS   I OR TAB CLOSE', W - 12, VIEW_H - 18, '#544c40');
+  drawRight('ENTER/E ACTIONS   I OR TAB CLOSE', W - 12, VIEW_H - 18, '#544c40');
 }
 
 // short stat readout shown in the pack and the shop
@@ -261,7 +262,7 @@ function drawHotlist() {
   drawVignetteOverlay('#000000', 0.55);
   const rows = G.hot.length;
   const h = 30 + rows * 14 + 14;
-  const x = 74, y = Math.round((VIEW_H - h) / 2), w = 172;
+  const x = 66, y = Math.round((VIEW_H - h) / 2), w = 188; // fits the footer
   drawPanel(x, y, w, h);
   drawTextCentered(ctx, 'QUICK ITEMS', x + w / 2, y + 7, '#c8a038', 1);
   G.hot.forEach((e, i) => {
@@ -272,7 +273,7 @@ function drawHotlist() {
     drawText(ctx, (i + 1) + '. ' + d.name, x + 24, ry, i === G.menu.sel ? '#ffe080' : '#b8ac98', 1);
     drawRight('X' + e.n, x + w - 8, ry, '#8a8078');
   });
-  drawTextCentered(ctx, 'ENTER DRINK   Q OR TAB CLOSE', x + w / 2, y + h - 11, '#544c40', 1);
+  drawTextCentered(ctx, 'ENTER/E DRINK   Q OR TAB CLOSE', x + w / 2, y + h - 11, '#544c40', 1);
   drawText(ctx, 'HP ' + Math.ceil(p.hp) + '/' + p.maxHp + '   MP ' + Math.floor(p.mp) + '/' + p.maxMp,
     x + 8, y + 16, '#6a6058', 1);
 }
@@ -310,5 +311,5 @@ function drawShop() {
     if (d.blurb) drawText(ctx, d.blurb, 20, y + 10, '#5f584e', 1);
   }
   drawText(ctx, 'GOLD ' + p.gold, 20, VIEW_H - 20, '#e8c040', 1);
-  drawRight('ENTER BUY   TAB LEAVE', W - 24, VIEW_H - 20, '#544c40');
+  drawRight('ENTER/E BUY   TAB LEAVE', W - 24, VIEW_H - 20, '#544c40');
 }
