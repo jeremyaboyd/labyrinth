@@ -43,5 +43,16 @@ const Input = (() => {
   }
   function exitLock() { document.exitPointerLock(); }
 
-  return { init, isDown, anyDown, exitLock, get locked() { return locked; } };
+  // synthetic input (touch controls): hold or release a code as if it were a
+  // key, firing the same press callback so game semantics stay in one place
+  function setDown(code, on) {
+    if (on && !down[code]) {
+      down[code] = true;
+      if (h.onPress) h.onPress(code, { code, synthetic: true });
+    } else if (!on) {
+      down[code] = false;
+    }
+  }
+
+  return { init, isDown, anyDown, setDown, exitLock, get locked() { return locked; } };
 })();

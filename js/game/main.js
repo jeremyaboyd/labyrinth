@@ -13,8 +13,10 @@ ctx.imageSmoothingEnabled = false;
 const view = createView(W, VIEW_H);
 
 // ---------- fit canvas to window at 4:3 (mode 13h pixel aspect) ----------
+// TouchUI (loaded last, only on touch devices) reserves room for its pads
 function fitCanvas() {
-  const s = Math.min(window.innerWidth / 320, window.innerHeight / 240);
+  const r = window.TouchUI && TouchUI.active ? TouchUI.reserve() : { x: 0, y: 0 };
+  const s = Math.min((window.innerWidth - r.x) / 320, (window.innerHeight - r.y) / 240);
   canvas.style.width = Math.floor(320 * s) + 'px';
   canvas.style.height = Math.floor(240 * s) + 'px';
 }

@@ -39,6 +39,14 @@ HELP, on both the title and pause menus, lists all of the above in game.
 Sound, fog of war and an FPS readout are toggled from OPTIONS, on the same
 two menus.
 
+On a phone or tablet the game grows gamepad-style touch controls: an 8-way
+pad on the left walks, a rocker on the right turns, and A/B/X/Y are
+use/attack/map/journal — with B doubling as BACK inside any menu, the way a
+gamepad's B does. The screen sits in a bezel between them, and the bezel
+carries the MENU (pause) pill. All of it is multi-touch, so you can walk,
+turn and shoot at once. Append `?touch=1` to the URL to force the controls
+on a desktop, or `?touch=0` to suppress them.
+
 ## Saving
 
 Three save slots, stored in your browser's localStorage. Save any time from
