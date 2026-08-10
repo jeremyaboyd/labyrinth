@@ -420,4 +420,204 @@ function generateTextures(seed) {
       texPut(px, x, y, 52 * s, 48 * s, 50 * s);
     }
   });
+
+  generateWorldTextures(rng);
+}
+
+// ---------------- surface world (level 0) ----------------
+
+const SeaFrames = [];      // T_SEA is swapped between these to make it move
+const WindowArt = {};      // { dark, lit } swapped as evening falls
+
+function generateWorldTextures(rng) {
+  // -- grass --
+  buildTexture(T_GRASS, (px) => {
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      const n = Math.sin(x * 0.7 + Math.sin(y * 0.4) * 2) * Math.cos(y * 0.6 + Math.sin(x * 0.3) * 1.5);
+      const s = 0.8 + n * 0.13 + (rng() - 0.5) * 0.16;
+      texPut(px, x, y, 54 * s, 94 * s, 42 * s);
+    }
+    for (let i = 0; i < 200; i++) { // blades catching the light
+      const bx = rngInt(rng, 0, TEX_SIZE - 1), by = rngInt(rng, 0, TEX_SIZE - 2);
+      const s = 0.9 + rng() * 0.5;
+      texPut(px, bx, by, 74 * s, 126 * s, 52 * s);
+      texPut(px, bx, by + 1, 58 * s, 102 * s, 44 * s);
+    }
+    for (let i = 0; i < 5; i++) { // scuffed earth
+      const cx = rngInt(rng, 4, 59), cy = rngInt(rng, 4, 59), r = rngInt(rng, 2, 5);
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (dx * dx + dy * dy > r * r || rng() < 0.4) continue;
+        texPut(px, cx + dx, cy + dy, 96, 84, 56);
+      }
+    }
+  });
+
+  // -- beach sand --
+  buildTexture(T_SAND, (px) => {
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      const ripple = Math.sin(y * 0.55 + Math.sin(x * 0.22) * 1.6) * 0.07;
+      const s = 0.9 + ripple + (rng() - 0.5) * 0.1;
+      texPut(px, x, y, 198 * s, 176 * s, 130 * s);
+    }
+    for (let i = 0; i < 70; i++) { // shell grit
+      const bx = rngInt(rng, 0, TEX_SIZE - 1), by = rngInt(rng, 0, TEX_SIZE - 1);
+      const s = 0.7 + rng() * 0.6;
+      texPut(px, bx, by, 176 * s, 156 * s, 118 * s);
+    }
+  });
+
+  // -- sea: three frames it cycles through --
+  SeaFrames.length = 0;
+  for (let f = 0; f < 3; f++) {
+    const px = new Uint32Array(TEX_SIZE * TEX_SIZE);
+    const phase = f * (Math.PI * 2 / 3);
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      const w1 = Math.sin(x * 0.30 + y * 0.16 + phase);
+      const w2 = Math.sin(x * 0.11 - y * 0.37 + phase * 0.7);
+      const c = w1 * 0.6 + w2 * 0.4;
+      const s = 0.76 + c * 0.17;
+      if (c > 0.86) texPut(px, x, y, 168, 200, 214); // foam crest
+      else texPut(px, x, y, 24 * s, 76 * s, 120 * s);
+    }
+    SeaFrames.push({ data: px, w: TEX_SIZE, h: TEX_SIZE });
+  }
+  Textures[T_SEA] = SeaFrames[0];
+
+  // -- packed dirt road --
+  buildTexture(T_ROAD, (px) => {
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      const n = Math.sin(x * 0.4 + y * 0.25) * 0.06;
+      const s = 0.88 + n + (rng() - 0.5) * 0.14;
+      texPut(px, x, y, 132 * s, 108 * s, 76 * s);
+    }
+    for (let i = 0; i < 90; i++) { // trodden stones
+      const bx = rngInt(rng, 0, TEX_SIZE - 1), by = rngInt(rng, 0, TEX_SIZE - 1);
+      const s = 0.75 + rng() * 0.5;
+      texPut(px, bx, by, 150 * s, 138 * s, 116 * s);
+    }
+  });
+
+  // -- castle courtyard flagstones --
+  buildTexture(T_COURT, (px) => {
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      const tx = x % 32, ty = y % 32;
+      const tid = ((x / 32) | 0) + ((y / 32) | 0) * 2;
+      const t = Math.sin(tid * 57.3) * 43758.5453;
+      const tint = (t - Math.floor(t) - 0.5) * 0.18;
+      let s = 0.86 + tint + (rng() - 0.5) * 0.06;
+      if (tx < 1 || ty < 1) s *= 0.55; // mortar
+      texPut(px, x, y, 118 * s, 114 * s, 106 * s);
+    }
+  });
+
+  // -- mountain rock --
+  buildTexture(T_MOUNTAIN, (px) => {
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      const ridge = Math.abs(Math.sin(x * 0.17 + Math.sin(y * 0.09) * 2.4));
+      const n = Math.sin(x * 0.9 + y * 0.5) * 0.05;
+      const s = 0.5 + ridge * 0.55 + n + (rng() - 0.5) * 0.12;
+      texPut(px, x, y, 104 * s, 100 * s, 98 * s);
+    }
+    for (let c = 0; c < 7; c++) { // crevices
+      let cx = rngInt(rng, 2, 61), cy = 0;
+      while (cy < TEX_SIZE) {
+        texPut(px, cx, cy, 34, 32, 34);
+        cx += rngInt(rng, -1, 1);
+        if (cx < 0) cx = 0; if (cx > 63) cx = 63;
+        cy += 1;
+      }
+    }
+  });
+
+  // -- timber-framed house --
+  const plasterWall = (px, beams) => {
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      const s = 0.92 + (rng() - 0.5) * 0.1;
+      texPut(px, x, y, 214 * s, 202 * s, 176 * s);
+    }
+    if (!beams) return;
+    const beam = (x0, y0, x1, y1, th) => {
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const edge = (x === x0 || x === x1 || y === y0 || y === y1);
+        texPut(px, x, y, edge ? 58 : 84, edge ? 40 : 58, edge ? 24 : 34);
+      }
+    };
+    beam(0, 0, 63, 4);    // top plate
+    beam(0, 59, 63, 63);  // sill
+    beam(0, 0, 4, 63);    // posts
+    beam(59, 0, 63, 63);
+    beam(29, 5, 34, 58);  // centre stud
+  };
+  buildTexture(T_HOUSE, (px) => plasterWall(px, true));
+
+  // -- leaded window, dark and lit --
+  const windowArt = (litUp) => {
+    const px = new Uint32Array(TEX_SIZE * TEX_SIZE);
+    plasterWall(px, false);
+    // timber surround
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      if (x < 6 || x > 57 || y < 6 || y > 57) {
+        const edge = (x < 2 || x > 61 || y < 2 || y > 61);
+        texPut(px, x, y, edge ? 58 : 84, edge ? 40 : 58, edge ? 24 : 34);
+      }
+    }
+    // glass with a leaded cross
+    for (let y = 8; y <= 55; y++) for (let x = 8; x <= 55; x++) {
+      const mullion = (Math.abs(x - 32) < 2 || Math.abs(y - 32) < 2);
+      if (mullion) { texPut(px, x, y, 70, 52, 30); continue; }
+      if (litUp) {
+        // warm light pooling out from the middle of each pane
+        const px0 = x < 32 ? 20 : 44, py0 = y < 32 ? 20 : 44;
+        const d = Math.hypot(x - px0, y - py0);
+        const s = clamp(1.25 - d * 0.035, 0.55, 1.25);
+        texPut(px, x, y, 255 * s, 208 * s, 116 * s);
+      } else {
+        const s = 0.9 + Math.sin(x * 0.6 + y * 0.4) * 0.08;
+        texPut(px, x, y, 44 * s, 52 * s, 62 * s);
+      }
+    }
+    return { data: px, w: TEX_SIZE, h: TEX_SIZE };
+  };
+  WindowArt.dark = windowArt(false);
+  WindowArt.lit = windowArt(true);
+  Textures[T_WINDOW] = WindowArt.dark;
+
+  // -- cottage door --
+  buildTexture(T_HDOOR, (px) => {
+    plasterWall(px, false);
+    for (let y = 4; y < TEX_SIZE; y++) for (let x = 12; x <= 51; x++) {
+      const plank = ((x - 12) / 10) | 0;
+      const grain = Math.sin(y * 0.4 + plank * 7) * 0.08;
+      const s = 0.8 + grain + (((x - 12) % 10 === 0) ? -0.3 : 0);
+      texPut(px, x, y, 118 * s, 78 * s, 42 * s);
+    }
+    for (const by of [14, 44]) { // iron straps
+      for (let y = by; y < by + 5; y++) for (let x = 12; x <= 51; x++) {
+        const s = (y === by || y === by + 4) ? 0.45 : 0.8;
+        texPut(px, x, y, 62 * s, 64 * s, 70 * s);
+      }
+    }
+    for (let a = 0; a < 40; a++) { // ring handle
+      const ang = (a / 40) * Math.PI * 2;
+      texPut(px, Math.round(44 + Math.cos(ang) * 4), Math.round(32 + Math.sin(ang) * 4), 74, 76, 84);
+    }
+  });
+
+  // -- castle ashlar --
+  buildTexture(T_CASTLE, (px) => {
+    const BH = 16, BW = 32;
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      const row = (y / BH) | 0;
+      const off = (row % 2) * (BW / 2);
+      const inBx = (x + off) % BW, inBy = y % BH;
+      const bid = row * 11 + (((x + off) % TEX_SIZE) / BW | 0) * 17;
+      const t = Math.sin(bid * 31.7) * 43758.5453;
+      const tint = (t - Math.floor(t) - 0.5) * 0.16;
+      let s = 1 + tint + (rng() - 0.5) * 0.08;
+      if (inBy < 1 || inBx < 1) s *= 0.5;                    // mortar
+      else if (inBy === 1 || inBx === 1) s *= 1.14;          // lit bevel
+      else if (inBy === BH - 1 || inBx === BW - 1) s *= 0.82;
+      texPut(px, x, y, 146 * s, 142 * s, 132 * s);
+    }
+  });
 }

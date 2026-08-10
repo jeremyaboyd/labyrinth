@@ -34,6 +34,7 @@ const SaveSys = (() => {
       floorName: G.level.name,
       crownTaken: G.crownTaken,
       kills: G.stats.kills,
+      clock: Math.round(G.clock * 100) / 100,
       player: {
         x: r2(p.x), y: r2(p.y), a: r2(p.a),
         hp: Math.ceil(p.hp), maxHp: p.maxHp,
@@ -90,6 +91,7 @@ const SaveSys = (() => {
     G.player = newPlayer();
     G.crownTaken = !!d.crownTaken;
     G.stats.kills = d.kills | 0;
+    G.clock = Number.isFinite(d.clock) ? d.clock : CLOCK_START;
     loadFloor(d.floor); // deterministic layout; runtime state overwritten below
     const p = G.player;
     p.x = d.player.x; p.y = d.player.y; p.a = d.player.a;

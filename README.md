@@ -5,7 +5,8 @@ An old-school first-person dungeon crawler in the style of early-90s DOS games
 pixels, procedurally generated labyrinths, and a WebAudio chiptune soundscape —
 all in vanilla JavaScript with zero dependencies.
 
-The Crown of the Deep lies lost on the 8th floor of the labyrinth.
+You begin on the shore at Kingshore, under an open sky. The Crown of the Deep
+lies lost on the 8th floor of the labyrinth beneath the castle.
 None who sought it have returned.
 
 ## Play
@@ -50,7 +51,19 @@ shops update still load — those runs simply keep their starting kit.
 
 ## The game
 
-- **Endless procedural labyrinths** — every floor is a fresh maze of corridors
+- **The surface (level 0)** — a fixed, hand-drawn world: a village of timber
+  cottages, woods, a castle against the mountains, and a beach along the bay.
+  Mountains wall off the north and west, the sea closes the south and east.
+  Villagers wander the lanes. It is the same world every run — only what lies
+  below is rolled fresh.
+- **Day and night** — one real minute is one hour. Dawn breaks at 6, full day
+  runs from 7, dusk falls at 21 and night holds from 22. The sky shifts from
+  stars to sunrise to blue to a red sunset and back, the land brightens and
+  darkens with it, the lamp posts light at dusk and go out at dawn, and cottage
+  windows glow from 6pm until 11pm.
+- **Down into the dark** — the way below is in the castle courtyard, through
+  the front gate. The clock keeps its own counsel once you are underground.
+- **Endless procedural labyrinths** — every floor below is a fresh maze of corridors
   and rooms, decorated with moss, glowing runes, banners, and skull niches.
   Floors grow larger and deadlier as you descend.
 - **Locked doors & keys** — most floors bar the way to the stairs with a locked
@@ -86,6 +99,15 @@ shops update still load — those runs simply keep their starting kit.
   in the texture, because the raycaster mirrors every wall face.
 - Arrows and magic bolts are sub-stepped billboards, so a fast shot cannot
   tunnel through a wall or a rat.
+- The surface adds three generic renderer features: a sky panorama sampled by
+  view angle in place of a ceiling, per-cell ground textures so grass, sand,
+  road and sea can meet, and tiles that block movement while letting the ray
+  pass (trees and lamp posts are sprites; the sea is drawn at ground level).
+  Ambient brightness and fog falloff are parameters, which is what lets night
+  close in around you.
+- Level 0 is a literal ASCII map in `js/game/overworld.js` — edit the art and
+  you edit the world. It is validated at load, so a miscounted row fails loudly
+  instead of quietly corrupting the map.
 - All textures and sprites are generated procedurally at boot (no image
   assets); text uses a hand-built 5×7 bitmap font.
 - All sound is synthesized live with WebAudio (no audio assets): sword, doors,
@@ -94,7 +116,7 @@ shops update still load — those runs simply keep their starting kit.
   and combat spaces; key/lock placement is validated with BFS reachability.
 - The code is split into an engine layer (`js/engine/`: raycaster, grid
   queries, input, synth — no game knowledge) and a game layer (`js/game/`:
-  tiles, balance config, items, shops, art, sfx, dungeon, projectiles, actors,
-  UI, menus, saves).
+  tiles, balance config, items, shops, art, sfx, dungeon, overworld, day/night,
+  projectiles, actors, UI, menus, saves).
 
 Built as a one-shot by Claude.

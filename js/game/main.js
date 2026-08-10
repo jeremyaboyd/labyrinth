@@ -32,6 +32,8 @@ const G = {
   enemies: [],
   items: [],
   projectiles: [],
+  npcs: [],
+  clock: CLOCK_START, // hours on the surface; one real minute is one hour
   messages: [],
   transT: 0,
   shakeT: 0,
@@ -54,7 +56,8 @@ function addMsg(text) {
 
 // ---------- floor / run management ----------
 function loadFloor(n) {
-  const lvl = generateDungeon(n, (G.baseSeed + n * 7919) >>> 0);
+  // level 0 is the fixed surface; everything below it is rolled from the seed
+  const lvl = n === 0 ? buildOverworld() : generateDungeon(n, (G.baseSeed + n * 7919) >>> 0);
   G.level = lvl;
   G.explored = new Uint8Array(lvl.w * lvl.h);
   const p = G.player;
@@ -62,13 +65,18 @@ function loadFloor(n) {
   p.y = lvl.start.y + 0.5;
   p.keys = 0;
   p.floor = n;
-  // face toward open space
-  for (const [dx, dy] of ADJ) {
-    if (cellAt(lvl, p.x + dx, p.y + dy) === 0) { p.a = Math.atan2(dy, dx); break; }
+  if (lvl.startAngle != null) {
+    p.a = lvl.startAngle;
+  } else {
+    // face toward open space
+    for (const [dx, dy] of ADJ) {
+      if (cellAt(lvl, p.x + dx, p.y + dy) === 0) { p.a = Math.atan2(dy, dx); break; }
+    }
   }
   G.enemies = lvl.spawns.map(s => makeEnemy(s.type, s.x, s.y));
   G.items = lvl.items.map(it => ({ ...it, bob: Math.random() * 10 }));
   G.projectiles = [];
+  G.npcs = (lvl.villagers || []).map((v, i) => makeVillager(v.x, v.y, i));
   if (n > G.best) { G.best = n; localStorage.setItem('labyrinth.best', String(n)); }
 }
 
@@ -88,7 +96,8 @@ function newGame() {
   G.crownTaken = false;
   G.stats.kills = 0;
   G.activeSlot = null;
-  loadFloor(1);
+  G.clock = CLOCK_START;
+  loadFloor(0); // every run begins on the surface
   G.state = 'transition';
   G.transT = 0;
   G.messages = [];
@@ -188,6 +197,22 @@ function loadFromSlot(slot) {
 function buildBillboards() {
   const lvl = G.level;
   const out = [];
+  if (lvl.props) {
+    const lit = lampsLit(G.clock);
+    for (const pr of lvl.props) {
+      if (pr.type === 'tree') {
+        out.push({ x: pr.x, y: pr.y, img: SPRITES.tree[pr.variant], hFrac: 1.9, zOff: 0, glow: false });
+      } else {
+        const img = lit ? SPRITES.lampOn[((G.time * 9 + pr.phase) | 0) % 3] : SPRITES.lampOff[0];
+        out.push({ x: pr.x, y: pr.y, img, hFrac: 1.35, zOff: 0, glow: lit });
+      }
+    }
+  }
+  for (const v of G.npcs) {
+    const frames = SPRITES['villager' + v.kind];
+    const fi = v.moving ? ((v.walkPhase | 0) % 2 + 2) % 2 : 2;
+    out.push({ x: v.x, y: v.y, img: frames[fi], hFrac: 0.8, zOff: 0, glow: false });
+  }
   for (const t of lvl.torches) {
     const fi = ((G.time * 9 + t.phase) | 0) % 3;
     out.push({ x: t.x, y: t.y, img: SPRITES.torch[fi], hFrac: 0.44, zOff: 0.38, glow: true });
@@ -222,12 +247,23 @@ function buildBillboards() {
 }
 
 function renderWorldView(camX, camY, camA, bob) {
-  const flicker = 0.9 + 0.06 * Math.sin(G.time * 11) + 0.04 * Math.sin(G.time * 23 + 1.7);
-  renderView(view, G.level, { x: camX, y: camY, a: camA, bob }, buildBillboards(), {
+  const lvl = G.level;
+  const opts = {
     textures: Textures, texSize: TEX_SIZE,
     floorTex: T_FLOOR, ceilTex: T_CEIL, borderTex: T_STONE,
-    fovPlane: FOV_PLANE, flicker,
-  });
+    fovPlane: FOV_PLANE,
+    flicker: 0.9 + 0.06 * Math.sin(G.time * 11) + 0.04 * Math.sin(G.time * 23 + 1.7),
+  };
+  if (lvl.outdoor) {
+    updateSurfaceLighting();
+    opts.sky = SkyTex;
+    opts.ambient = ambientLight(G.clock);
+    opts.fogK = ambientFogK(G.clock);
+    opts.flicker = 1;            // no torchlight to gutter out here
+    opts.floorTex = T_GRASS;     // only used if a cell has no floorMap entry
+    opts.borderTex = T_MOUNTAIN;
+  }
+  renderView(view, lvl, { x: camX, y: camY, a: camA, bob }, buildBillboards(), opts);
 }
 
 // ---------- input wiring ----------
@@ -426,6 +462,7 @@ function frame(t) {
 // ---------- boot ----------
 generateTextures(0xDEADBEEF);
 generateSprites();
+initSky();
 // backdrop level for the title screen
 G.player = newPlayer();
 loadFloor(1);
