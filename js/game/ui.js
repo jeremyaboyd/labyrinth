@@ -54,12 +54,13 @@ function drawHUD() {
     String(Math.max(0, Math.ceil(p.hp))));
   drawMeter('MP', 8, VIEW_H + 18, p.mp / p.maxMp, '#2050c8', '#0c1436', String(Math.floor(p.mp)));
 
-  // purse and quiver
-  drawIcon('gold', 104, VIEW_H + 2);
-  drawText(ctx, String(p.gold), 122, VIEW_H + 7, '#e8c040', 1);
+  // purse and quiver. 12px icons: at their native 16 the quiver reached down
+  // into the status line below and sat across the text
+  drawIcon('gold', 104, VIEW_H + 3, 12);
+  drawText(ctx, String(p.gold), 120, VIEW_H + 5, '#e8c040', 1);
   if (p.equip.ammo) {
-    drawIcon(ITEMS[p.equip.ammo].icon, 104, VIEW_H + 20);
-    drawText(ctx, String(ammoCount(p)), 122, VIEW_H + 25, '#c8b898', 1);
+    drawIcon(ITEMS[p.equip.ammo].icon, 104, VIEW_H + 17, 12);
+    drawText(ctx, String(ammoCount(p)), 120, VIEW_H + 19, '#c8b898', 1);
   }
 
   // what is in hand and on the back
@@ -78,12 +79,11 @@ function drawHUD() {
   ctx.fillRect(298, VIEW_H + 3, 18, 18);
   if (p.keys > 0) drawIcon('key', 299, VIEW_H + 4);
 
-  // the hint row doubles as a status line while a full panel is up
+  // status line for whatever a full panel has to say; the key list that used
+  // to live here is on the HELP screen, off both menus
   const latest = G.messages[G.messages.length - 1];
   if (latest && PANEL_STATES.includes(G.state)) {
     drawText(ctx, latest.text, 8, VIEW_H + 31, '#c8b070', 1);
-  } else {
-    drawText(ctx, 'M MAP  E USE  I PACK  Q QUICK  J LOG  TAB MENU', 8, VIEW_H + 31, '#4a4238', 1);
   }
 }
 
@@ -287,15 +287,47 @@ function drawTitleBase() {
 function drawTitle() {
   drawTitleBase();
 
-  drawTextCentered(ctx, 'THE CROWN OF THE DEEP LIES LOST', W / 2, 80, '#7a7268', 1);
-  drawTextCentered(ctx, 'ON THE 8TH FLOOR OF THE LABYRINTH.', W / 2, 90, '#7a7268', 1);
-  drawTextCentered(ctx, 'NONE WHO SOUGHT IT HAVE RETURNED.', W / 2, 100, '#7a7268', 1);
+  drawTextCentered(ctx, 'THE CROWN OF THE DEEP LIES LOST', W / 2, 76, '#7a7268', 1);
+  drawTextCentered(ctx, 'ON THE 8TH FLOOR OF THE LABYRINTH.', W / 2, 86, '#7a7268', 1);
+  drawTextCentered(ctx, 'NONE WHO SOUGHT IT HAVE RETURNED.', W / 2, 96, '#7a7268', 1);
 
-  drawMenuItems(G.menu.items, G.menu.sel, 114, 12);
+  drawMenuItems(G.menu.items, G.menu.sel, 108, 11);
 
-  drawTextCentered(ctx, 'WASD MOVE   MOUSE OR ARROWS TURN   SHIFT RUN', W / 2, VIEW_H + 5, '#544c40', 1);
-  drawTextCentered(ctx, 'SPACE ATTACK   E USE   I PACK   Q QUICK   M MAP', W / 2, VIEW_H + 16, '#544c40', 1);
-  if (G.best > 1) drawTextCentered(ctx, 'DEEPEST DELVE: FLOOR ' + G.best, W / 2, VIEW_H + 28, '#6a6058', 1);
+  // the controls used to be listed here; HELP carries them now
+  drawTextCentered(ctx, 'ARROWS SELECT   ENTER CONFIRM', W / 2, VIEW_H + 8, '#544c40', 1);
+  if (G.best > 1) drawTextCentered(ctx, 'DEEPEST DELVE: FLOOR ' + G.best, W / 2, VIEW_H + 24, '#6a6058', 1);
+}
+
+// every binding in one place, so the HUD does not have to carry a cheat sheet
+const HELP_ROWS = [
+  ['W A S D', 'MOVE AND STRAFE'],
+  ['MOUSE, ARROWS', 'TURN'],
+  ['SHIFT', 'RUN'],
+  ['SPACE, CLICK', 'ATTACK'],
+  ['E', 'OPEN, TALK, TAKE STAIRS'],
+  ['I', 'YOUR PACK'],
+  ['Q', 'QUICK ITEMS'],
+  ['J', 'JOURNAL'],
+  ['M', 'MAP'],
+  ['TAB', 'MENU, AND BACK OUT'],
+  ['ENTER, E', 'CONFIRM IN MENUS'],
+];
+
+function drawHelp() {
+  drawVignetteOverlay('#000000', 0.66);
+  drawPanel(8, 4, W - 16, VIEW_H - 8);
+  drawTextCentered(ctx, 'CONTROLS', W / 2, 9, '#c8a038', 1);
+  ctx.fillStyle = '#3a3028';
+  ctx.fillRect(16, 19, W - 32, 1);
+  // keys right-aligned into a column so the two halves read as a table
+  ctx.fillStyle = '#2e281f';
+  ctx.fillRect(132, 22, 1, HELP_ROWS.length * 11);
+  HELP_ROWS.forEach(([keyLabel, what], i) => {
+    const y = 24 + i * 11;
+    drawRight(keyLabel, 128, y, '#c8a038');
+    drawText(ctx, what, 138, y, '#b8ac98', 1);
+  });
+  drawTextCentered(ctx, 'TAB BACK', W / 2, VIEW_H - 15, '#544c40', 1);
 }
 
 function drawTransition() {
@@ -337,7 +369,7 @@ function drawPause() {
   drawVignetteOverlay('#000000', 0.5);
   drawTextCentered(ctx, 'PAUSED', W / 2, 52, '#e8d8a8', 2);
   drawMenuItems(G.menu.items, G.menu.sel, 82, 13);
-  drawTextCentered(ctx, 'TAB RESUME', W / 2, 138, '#544c40', 1);
+  drawTextCentered(ctx, 'TAB RESUME', W / 2, 148, '#544c40', 1);
 }
 
 // same box as the slot picker, so the two feel like siblings
