@@ -1,7 +1,6 @@
-// ---- procedural labyrinth generation ----
+// ---- game/dungeon: procedural labyrinth generation ----
+// Uses BALANCE curves from game/config.js and ADJ from engine/grid.js.
 'use strict';
-
-const ADJ = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
 function levelName(floorNum, rng) {
   const adj = ['FORGOTTEN', 'SILENT', 'WEEPING', 'SUNKEN', 'ANCIENT', 'CURSED', 'BLACK', 'ENDLESS', 'HOLLOW', 'BURIED'];
@@ -10,11 +9,9 @@ function levelName(floorNum, rng) {
   return 'THE ' + pick(rng, adj) + ' ' + pick(rng, noun);
 }
 
-const CROWN_FLOOR = 8;
-
 function generateDungeon(floorNum, seed) {
   const rng = makeRng(seed);
-  const size = Math.min(21 + floorNum * 2, 37);
+  const size = BALANCE.mapSize(floorNum);
   const w = size, h = size;
   const map = new Uint8Array(w * h).fill(T_STONE);
   const at = (x, y) => map[y * w + x];
@@ -42,7 +39,7 @@ function generateDungeon(floorNum, seed) {
   }
 
   // 2) carve rooms on top (creates loops + open combat spaces)
-  const roomCount = 3 + Math.floor(floorNum / 2) + rngInt(rng, 0, 2);
+  const roomCount = BALANCE.rooms(floorNum) + rngInt(rng, 0, 2);
   const rooms = [];
   for (let r = 0; r < roomCount * 3 && rooms.length < roomCount; r++) {
     const rw = 3 + rngInt(rng, 0, 2) * 2, rh = 3 + rngInt(rng, 0, 2) * 2;
@@ -160,7 +157,7 @@ function generateDungeon(floorNum, seed) {
 
   // 7) regular doors on corridor cells
   let doorCount = 0;
-  const doorMax = 4 + Math.floor(floorNum / 2);
+  const doorMax = BALANCE.doorMax(floorNum);
   for (let y = 1; y < h - 1 && doorCount < doorMax; y++) for (let x = 1; x < w - 1 && doorCount < doorMax; x++) {
     if (at(x, y) !== 0 || !isCorridor(x, y)) continue;
     if (Math.abs(x - start.x) + Math.abs(y - start.y) < 3) continue;
@@ -208,9 +205,9 @@ function generateDungeon(floorNum, seed) {
 
   // 9) enemies
   const spawns = [];
-  const ratN = 2 + Math.min(floorNum, 6);
-  const skelN = 1 + Math.floor(floorNum * 0.9);
-  const wraithN = floorNum >= 3 ? Math.min(floorNum - 2, 5) : 0;
+  const ratN = BALANCE.rats(floorNum);
+  const skelN = BALANCE.skeletons(floorNum);
+  const wraithN = BALANCE.wraiths(floorNum);
   const addEnemy = (type, n, minD) => {
     for (let i = 0; i < n; i++) {
       const c = freeCell(minD);
@@ -223,9 +220,9 @@ function generateDungeon(floorNum, seed) {
 
   // 10) items
   const items = [];
-  const potN = 2 + Math.floor(floorNum / 2);
+  const potN = BALANCE.potions(floorNum);
   for (let i = 0; i < potN; i++) { const c = freeCell(4); if (c) items.push({ type: 'potion', x: c.x + 0.5, y: c.y + 0.5 }); }
-  const goldN = 4 + floorNum;
+  const goldN = BALANCE.goldPiles(floorNum);
   for (let i = 0; i < goldN; i++) { const c = freeCell(3); if (c) items.push({ type: 'gold', x: c.x + 0.5, y: c.y + 0.5 }); }
   if (keyPos) items.push({ type: 'key', x: keyPos.x + 0.5, y: keyPos.y + 0.5 });
   if (floorNum === CROWN_FLOOR) items.push({ type: 'crown', x: exit.x + 0.5, y: exit.y + 0.5 });
@@ -248,6 +245,7 @@ function generateDungeon(floorNum, seed) {
 
   return {
     w, h, map, doors, start, exit, spawns, items, torches,
+    tiles: TILE_DEFS,
     floorNum,
     name: levelName(floorNum, rng),
     hasCrown: floorNum === CROWN_FLOOR,
