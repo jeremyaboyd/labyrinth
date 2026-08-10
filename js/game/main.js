@@ -44,7 +44,11 @@ const G = {
   best: parseInt(localStorage.getItem('labyrinth.best') || '0', 10),
   stats: { kills: 0 },
   menu: { items: [], ids: [], sel: 0, scroll: 0, slots: null, actions: [], actionSel: 0, actionSlot: 0, optionsFrom: 'title' },
+  deepest: -1,    // deepest floor reached this run; anything at or above it is walked ground
+  floorNames: {}, // floor -> the name it was given, so the climb menu can list them
   shop: null,     // shop whose window is currently open
+  flights: [],    // floors the stair menu is offering
+  flightDir: 'up',// which way that menu is going
   hot: [],        // quick-item rows, rebuilt each time Q is pressed
   journal: [],    // quest rows, rebuilt each time J is pressed
   dialogue: null, // who is speaking, and what they say
@@ -58,17 +62,24 @@ function addMsg(text) {
 }
 
 // ---------- floor / run management ----------
-function loadFloor(n) {
+// arriveAt: 'start' (you came down, or the run begins) | 'exit' (you came back up)
+function loadFloor(n, arriveAt) {
   // level 0 is the fixed surface; everything below it is rolled from the seed
   const lvl = n === 0 ? buildOverworld() : generateDungeon(n, (G.baseSeed + n * 7919) >>> 0);
   G.level = lvl;
   G.explored = new Uint8Array(lvl.w * lvl.h);
+  // ground you have already walked stays walked: no fog on a floor you finished
+  if (n <= G.deepest) G.explored.fill(1);
+  if (n > G.deepest) G.deepest = n;
+  G.floorNames[n] = lvl.name;
   const p = G.player;
-  p.x = lvl.start.x + 0.5;
-  p.y = lvl.start.y + 0.5;
+  const spot = arriveAt === 'exit' ? lvl.exit : lvl.start;
+  p.x = spot.x + 0.5;
+  p.y = spot.y + 0.5;
   p.keys = 0;
   p.floor = n;
-  if (lvl.startAngle != null) {
+  // the surface has a scripted opening view, but only when you start there
+  if (arriveAt !== 'exit' && lvl.startAngle != null) {
     p.a = lvl.startAngle;
   } else {
     // face toward open space
@@ -101,18 +112,23 @@ function newGame() {
   G.stats.kills = 0;
   G.activeSlot = null;
   G.clock = CLOCK_START;
+  G.deepest = -1;   // so the surface itself is not treated as already walked
+  G.floorNames = {};
   loadFloor(0); // every run begins on the surface
   G.state = 'transition';
   G.transT = 0;
   G.messages = [];
 }
 
-function nextFloor() {
-  loadFloor(G.player.floor + 1);
+function changeFloor(n, arriveAt) {
+  loadFloor(n, arriveAt);
   if (G.activeSlot != null) {
     if (SaveSys.write(G.activeSlot)) addMsg('AUTOSAVED TO SLOT ' + (G.activeSlot + 1));
   }
 }
+
+// down the stairs: you appear at the head of the new floor
+function nextFloor() { changeFloor(G.player.floor + 1, 'start'); }
 
 // ---------- menus ----------
 function openTitleMenu() {
@@ -227,6 +243,9 @@ function buildBillboards() {
   }
   if (!lvl.hasCrown || G.crownTaken) {
     out.push({ x: lvl.exit.x + 0.5, y: lvl.exit.y + 0.5, img: SPRITES.stairs[0], hFrac: 0.9, zOff: 0, glow: false });
+  }
+  if (lvl.floorNum > 0) { // the way back up; the surface has none
+    out.push({ x: lvl.start.x + 0.5, y: lvl.start.y + 0.5, img: SPRITES.stairsUp[0], hFrac: 0.9, zOff: 0, glow: false });
   }
   for (const it of G.items) {
     const bobZ = 0.04 + Math.sin(it.bob) * 0.02;
@@ -361,6 +380,8 @@ function handlePress(code) {
       confirmShopBuy();
     } else if (G.state === 'dialogue') {
       endDialogue();
+    } else if (G.state === 'stairs') {
+      confirmStairs();
     } else if (G.state === 'journal') {
       openQuestAction();
     } else if (G.state === 'questaction') {
@@ -387,7 +408,7 @@ function handlePress(code) {
     else if (G.state === 'itemaction') G.state = 'inventory';
     else if (G.state === 'questaction' || G.state === 'questdetail') G.state = 'journal';
     else if (G.state === 'dialogue') endDialogue();
-    else if (['inventory', 'hotlist', 'shop', 'journal'].includes(G.state)) G.state = 'play';
+    else if (['inventory', 'hotlist', 'shop', 'journal', 'stairs'].includes(G.state)) G.state = 'play';
     return;
   }
   if (code === 'KeyM') { G.showMap = !G.showMap; return; }
@@ -480,6 +501,7 @@ function frame(t) {
   else if (G.state === 'hotlist') drawHotlist();
   else if (G.state === 'shop') drawShop();
   else if (G.state === 'journal') drawJournal();
+  else if (G.state === 'stairs') drawStairs();
   else if (G.state === 'questaction') drawQuestAction();
   else if (G.state === 'questdetail') drawQuestDetail();
   else if (G.state === 'dialogue') drawDialogue();

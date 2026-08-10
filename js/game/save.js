@@ -33,6 +33,8 @@ const SaveSys = (() => {
       floor: p.floor,
       floorName: G.level.name,
       crownTaken: G.crownTaken,
+      deepest: G.deepest,
+      floorNames: G.floorNames,
       kills: G.stats.kills,
       clock: Math.round(G.clock * 100) / 100,
       player: {
@@ -93,6 +95,10 @@ const SaveSys = (() => {
     G.crownTaken = !!d.crownTaken;
     G.stats.kills = d.kills | 0;
     G.clock = Number.isFinite(d.clock) ? d.clock : CLOCK_START;
+    // saves older than the climb menu never recorded this; you cannot be on a
+    // floor without having walked down through every floor above it
+    G.deepest = Number.isFinite(d.deepest) ? d.deepest : d.floor;
+    G.floorNames = d.floorNames || {};
     loadFloor(d.floor); // deterministic layout; runtime state overwritten below
     const p = G.player;
     p.x = d.player.x; p.y = d.player.y; p.a = d.player.a;

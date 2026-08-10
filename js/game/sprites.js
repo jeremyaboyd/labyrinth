@@ -318,6 +318,27 @@ function drawStairs(ctx, p) {
   p.rect(6, 28, 20, 2, '#243428');
 }
 
+function drawStairsUp(ctx, p) {
+  // same arch, but the steps climb away from you toward a lit landing
+  p.rect(2, 2, 28, 30, '#6a6258');
+  p.rect(4, 4, 24, 28, '#141210');
+  const steps = ['#3a352d', '#4a443b', '#5c5449', '#6e6558', '#807668'];
+  let y = 24;
+  for (let i = 0; i < steps.length; i++) {
+    const inset = 4 + i * 2;
+    p.rect(inset, y, 32 - inset * 2, 3, steps[i]);
+    p.rect(inset, y - 1, 32 - inset * 2, 1, '#0c0a08');
+    y -= 4;
+  }
+  // arch highlight
+  p.rect(2, 2, 28, 2, '#7c7468');
+  p.rect(2, 2, 2, 30, '#7c7468');
+  p.rect(28, 2, 2, 30, '#524c44');
+  // daylight spilling down the flight
+  p.rect(12, 5, 8, 3, '#c0b088');
+  p.rect(13, 8, 6, 1, '#8e846c');
+}
+
 function drawCrown(ctx, p, f) {
   const G = '#f0c030', GD = '#9a7818', GL = '#fff0a0';
   // band
@@ -576,6 +597,7 @@ function generateSprites() {
     makeSpriteFrame(16, 24, (c, p) => drawTorch(c, p, 2)),
   ];
   SPRITES.stairs = [makeSpriteFrame(32, 34, drawStairs)];
+  SPRITES.stairsUp = [makeSpriteFrame(32, 34, drawStairsUp)];
   SPRITES.crown = [
     makeSpriteFrame(20, 16, (c, p) => drawCrown(c, p, 0)),
     makeSpriteFrame(20, 16, (c, p) => drawCrown(c, p, 1)),

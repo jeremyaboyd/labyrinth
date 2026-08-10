@@ -102,6 +102,7 @@ function drawDialogue() {
 
 // ---------- journal ----------
 const JOURNAL_ROWS_VISIBLE = 8;
+const STAIR_ROWS_VISIBLE = 7;
 
 function openJournal() {
   G.journal = questList(G.player);
@@ -110,6 +111,89 @@ function openJournal() {
   G.menu.scroll = 0;
   G.state = 'journal';
   SFX.menuMove();
+}
+
+// ---------- taking a flight of stairs ----------
+// Both directions offer the whole run. Every floor above you is one you walked
+// down through to get here, and every floor down to the deepest you have
+// reached is ground you have already opened up. The one step past your deepest
+// point is new, so it is offered only from the deepest floor itself.
+function stairRow(n, untrodden) {
+  return {
+    floor: n,
+    label: n === 0 ? 'THE SURFACE' : 'FLOOR ' + n,
+    name: untrodden ? 'UNTRODDEN' : (G.floorNames[n] || ''),
+  };
+}
+
+function stairChoices(dir) {
+  const out = [];
+  const here = G.player.floor;
+  if (dir === 'up') {
+    for (let n = here - 1; n >= 0; n--) out.push(stairRow(n, false));
+  } else {
+    const last = here === G.deepest ? G.deepest + 1 : G.deepest;
+    for (let n = here + 1; n <= last; n++) out.push(stairRow(n, n > G.deepest));
+  }
+  return out;
+}
+
+function openStairs(dir) {
+  G.flights = stairChoices(dir);
+  G.flightDir = dir;
+  if (!G.flights.length) { SFX.denied(); return; }
+  G.menu.sel = 0;
+  G.menu.scroll = 0;
+  G.state = 'stairs';
+  SFX.menuMove();
+}
+
+function confirmStairs() {
+  const c = G.flights[G.menu.sel];
+  if (!c) { G.state = 'play'; return; }
+  SFX.stairs();
+  G.state = 'transition';
+  G.transT = 0;
+  // you step off at the far end of the flight: climbing puts you on that
+  // floor's stair down, descending puts you on its stair up
+  changeFloor(c.floor, G.flightDir === 'up' ? 'exit' : 'start');
+}
+
+function drawStairs() {
+  const up = G.flightDir === 'up';
+  drawVignetteOverlay('#000000', 0.62);
+  drawPanel(10, 6, W - 20, VIEW_H - 16);
+  drawTextCentered(ctx, up ? 'CLIMB BACK' : 'GO DOWN', W / 2, 12, '#c8a038', 1);
+  ctx.fillStyle = '#3a3028';
+  ctx.fillRect(18, 24, W - 36, 1);
+
+  const total = G.flights.length;
+  const vis = Math.min(STAIR_ROWS_VISIBLE, total);
+  const scrolls = total > vis;
+  const top = scrollWindow(G.menu.sel, total, vis, G.menu.scroll);
+  G.menu.scroll = top;
+
+  for (let r = 0; r < vis; r++) {
+    const i = top + r;
+    const c = G.flights[i];
+    // 12px rows so a full nine-floor flight clears the footer below
+    const y = 32 + r * 12;
+    if (i === G.menu.sel) highlightRow(16, y, W - 32 - (scrolls ? 10 : 0));
+    drawText(ctx, c.label, 22, y, i === G.menu.sel ? '#ffe080' : '#b8ac98', 1);
+    // untrodden ground is named for what it is, and worth the warmer colour
+    const nameCol = c.name === 'UNTRODDEN' ? '#8a6a48' : (i === G.menu.sel ? '#c8a038' : '#6a6058');
+    if (c.name) drawRight(c.name, W - 24 - (scrolls ? 10 : 0), y, nameCol);
+  }
+  if (scrolls) drawScrollbar(300, 29, vis * 12, top, total, vis);
+
+  const sel = G.flights[G.menu.sel];
+  const n = sel ? Math.abs(G.player.floor - sel.floor) : 0;
+  const y = VIEW_H - 36;
+  ctx.fillStyle = '#3a3028';
+  ctx.fillRect(18, y - 6, W - 36, 1);
+  const way = up ? 'UP' : 'DOWN';
+  drawText(ctx, (n === 1 ? 'ONE FLIGHT ' : n + ' FLIGHTS ') + way, 20, y, '#8a8078', 1);
+  drawRight((up ? 'ENTER/E CLIMB' : 'ENTER/E DESCEND') + '   TAB STAY', W - 24, VIEW_H - 20, '#544c40');
 }
 
 function openQuestAction() {
@@ -252,6 +336,7 @@ function menuRowCount() {
     case 'hotlist': return G.hot.length;
     case 'shop': return G.shop.stock.length;
     case 'journal': return G.journal.length;
+    case 'stairs': return G.flights.length;
     case 'questaction': return G.menu.actions.length;
     default: return 0;
   }

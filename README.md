@@ -26,7 +26,7 @@ Then visit `http://localhost:8123`.
 | `W` `A` `S` `D` | Move / strafe |
 | Mouse (click to capture) or `←` `→` | Turn |
 | `Space` / left click | Attack with the equipped weapon |
-| `E` | Open / unlock doors, trade at a shop window |
+| `E` | Take the stairs you stand on (pick a floor), open / unlock doors, trade at a shop window |
 | `I` | Open your pack (10 slots) |
 | `Q` | Quick items — drink without hunting through the pack |
 | `J` | Journal — your quests, and which one you are tracking |
@@ -41,7 +41,7 @@ Sound is toggled from OPTIONS, on both the title and pause menus.
 
 Three save slots, stored in your browser's localStorage. Save any time from
 the pause menu (`Esc` → SAVE GAME); the game also autosaves to your slot on
-every stair descent. Quitting to the title does **not** save — anything since
+every change of floor. Quitting to the title does **not** save — anything since
 your last save or descent is lost. The title screen offers CONTINUE (most
 recent slot), NEW GAME, and LOAD GAME. A save captures the full mid-floor
 state — position, health, gold, keys, every enemy, item, opened door, and
@@ -76,6 +76,17 @@ shops update still load — those runs simply keep their starting kit.
   Floors grow larger and deadlier as you descend.
 - **Locked doors & keys** — most floors bar the way to the stairs with a locked
   door; the iron key is hidden somewhere in the reachable half of the maze.
+- **Stairs both ways** — every floor has a flight down at its far end and the
+  flight you arrived by at its head. Press `E` on either and the stairwell asks
+  how far you mean to go, listing the floors by name. The climb offers
+  everything above you, so you can go from the deep straight to the castle
+  courtyard to carry the crown home and restock at the village. The descent
+  offers everything down to the deepest floor you have reached, and only from
+  that floor itself can you press on into UNTRODDEN ground — the labyrinth is
+  not handing you a shortcut past what you have not seen. Ground you have
+  already walked stays lit: no fog on a floor you finished. The floor itself is
+  rebuilt from the seed when you return, so the walls are where you left them,
+  but the monsters and the loot are not.
 - **Three foes** — giant rats (fast, weak), skeleton warriors (steady, armed),
   and dark wraiths (fast, vicious, glowing eyes). They wander until they see
   you, then they hunt.

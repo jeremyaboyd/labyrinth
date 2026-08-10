@@ -91,15 +91,22 @@ function drawHUD() {
 function useHint() {
   const p = G.player;
   const lvl = G.level;
-  const fx = p.x + Math.cos(p.a) * 0.9, fy = p.y + Math.sin(p.a) * 0.9;
-  const c = cellAt(lvl, fx, fy);
   let hint = null;
-  if (c === T_DOOR || c === T_DOOR_LOCKED) {
-    const d = lvl.doors[(fy | 0) * lvl.w + (fx | 0)];
-    if (d && d.open < 0.1) hint = d.locked ? 'E - UNLOCK' : 'E - OPEN';
-  } else if (shopKindAt(c)) {
-    const shop = shopAtCell(lvl, fx, fy);
-    if (shop && (p.x | 0) === shop.fx && (p.y | 0) === shop.fy) hint = 'E - ' + SHOP_TITLE[shop.kind];
+  const stair = stairsUnderFoot();
+  if (stair === 'down') {
+    hint = 'E - DESCEND';
+  } else if (stair === 'up') {
+    hint = p.floor === 1 ? 'E - LEAVE THE LABYRINTH' : 'E - ASCEND';
+  } else {
+    const fx = p.x + Math.cos(p.a) * 0.9, fy = p.y + Math.sin(p.a) * 0.9;
+    const c = cellAt(lvl, fx, fy);
+    if (c === T_DOOR || c === T_DOOR_LOCKED) {
+      const d = lvl.doors[(fy | 0) * lvl.w + (fx | 0)];
+      if (d && d.open < 0.1) hint = d.locked ? 'E - UNLOCK' : 'E - OPEN';
+    } else if (shopKindAt(c)) {
+      const shop = shopAtCell(lvl, fx, fy);
+      if (shop && (p.x | 0) === shop.fx && (p.y | 0) === shop.fy) hint = 'E - ' + SHOP_TITLE[shop.kind];
+    }
   }
   // sits above the shop plaque rather than across it
   if (hint) drawTextCentered(ctx, hint, W / 2, VIEW_H - 44, '#d0c090', 1);
@@ -170,7 +177,10 @@ function drawMinimap() {
     ctx.fillStyle = col;
     ctx.fillRect(ox + x * scale, oy + y * scale, scale, scale);
     if (x === lvl.exit.x && y === lvl.exit.y && (!lvl.hasCrown || G.crownTaken)) {
-      ctx.fillStyle = '#40e060';
+      ctx.fillStyle = '#40e060'; // down
+      ctx.fillRect(ox + x * scale, oy + y * scale, scale, scale);
+    } else if (lvl.floorNum > 0 && x === lvl.start.x && y === lvl.start.y) {
+      ctx.fillStyle = '#40c0e0'; // up
       ctx.fillRect(ox + x * scale, oy + y * scale, scale, scale);
     }
   }
