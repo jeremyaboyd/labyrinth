@@ -3,7 +3,20 @@
 <head>
 <meta charset="utf-8">
 <title>LABYRINTH — Crown of the Deep</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- user-scalable=no: pinch-zoom on a pad is a misfire, never an intent.
+     viewport-fit=cover puts the game under the notch and lets touch.js read
+     the safe-area insets back out. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c0906">
+<meta name="description" content="An old-school first-person dungeon crawler in the style of early-90s DOS games.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<!-- iOS ignores the manifest: these are how it installs to the home screen -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Labyrinth">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -36,5 +49,14 @@
 <script src="js/game/menus.js"></script>
 <script src="js/game/main.js"></script>
 <script src="js/game/touch.js"></script>
+<script>
+// installable and playable offline. Registered last and guarded, so a browser
+// without service workers -- or a file:// open -- just runs the game as before.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
 </body>
 </html>
