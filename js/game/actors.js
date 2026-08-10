@@ -116,10 +116,34 @@ function npcInFront() {
   return best;
 }
 
-// E: speak to whoever is there, else open the door or shop window ahead
+// Which staircase the player is standing on, if any. Both are taken with E:
+// stepping onto one used to be enough for the way down, but arriving back up
+// lands you squarely on it, and that would drop you straight through again.
+function stairsUnderFoot() {
+  const p = G.player, lvl = G.level;
+  if ((!lvl.hasCrown || G.crownTaken)
+      && Math.hypot(lvl.exit.x + 0.5 - p.x, lvl.exit.y + 0.5 - p.y) < 0.6) return 'down';
+  if (lvl.floorNum > 0
+      && Math.hypot(lvl.start.x + 0.5 - p.x, lvl.start.y + 0.5 - p.y) < 0.6) return 'up';
+  return null;
+}
+
+function takeStairs(dir) {
+  SFX.stairs();
+  G.state = 'transition';
+  G.transT = 0;
+  if (dir === 'down') nextFloor();
+  else prevFloor();
+}
+
+// E: take the stairs you are on, speak to whoever is there, else open the
+// door or shop window ahead
 function useFront() {
   const p = G.player;
   const lvl = G.level;
+
+  const stair = stairsUnderFoot();
+  if (stair) { takeStairs(stair); return; }
 
   const npc = npcInFront();
   if (npc) {
@@ -262,18 +286,6 @@ function updatePlay(dt) {
     }
   }
   if (G.state !== 'play') return; // crown pickup may have ended the run
-
-  // stairs
-  if (!lvl.hasCrown || G.crownTaken) {
-    const d = Math.hypot(lvl.exit.x + 0.5 - p.x, lvl.exit.y + 0.5 - p.y);
-    if (d < 0.55) {
-      SFX.stairs();
-      G.state = 'transition';
-      G.transT = 0;
-      nextFloor();
-      return;
-    }
-  }
 
   G.clock = (G.clock + dt * HOURS_PER_SECOND) % 24;
   updateVillagers(dt);

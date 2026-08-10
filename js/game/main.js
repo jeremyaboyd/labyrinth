@@ -58,17 +58,20 @@ function addMsg(text) {
 }
 
 // ---------- floor / run management ----------
-function loadFloor(n) {
+// arriveAt: 'start' (you came down, or the run begins) | 'exit' (you came back up)
+function loadFloor(n, arriveAt) {
   // level 0 is the fixed surface; everything below it is rolled from the seed
   const lvl = n === 0 ? buildOverworld() : generateDungeon(n, (G.baseSeed + n * 7919) >>> 0);
   G.level = lvl;
   G.explored = new Uint8Array(lvl.w * lvl.h);
   const p = G.player;
-  p.x = lvl.start.x + 0.5;
-  p.y = lvl.start.y + 0.5;
+  const spot = arriveAt === 'exit' ? lvl.exit : lvl.start;
+  p.x = spot.x + 0.5;
+  p.y = spot.y + 0.5;
   p.keys = 0;
   p.floor = n;
-  if (lvl.startAngle != null) {
+  // the surface has a scripted opening view, but only when you start there
+  if (arriveAt !== 'exit' && lvl.startAngle != null) {
     p.a = lvl.startAngle;
   } else {
     // face toward open space
@@ -107,12 +110,18 @@ function newGame() {
   G.messages = [];
 }
 
-function nextFloor() {
-  loadFloor(G.player.floor + 1);
+function changeFloor(n, arriveAt) {
+  loadFloor(n, arriveAt);
   if (G.activeSlot != null) {
     if (SaveSys.write(G.activeSlot)) addMsg('AUTOSAVED TO SLOT ' + (G.activeSlot + 1));
   }
 }
+
+// down the stairs: you appear at the head of the new floor
+function nextFloor() { changeFloor(G.player.floor + 1, 'start'); }
+
+// back up them: you appear on the stair you originally came down
+function prevFloor() { changeFloor(G.player.floor - 1, 'exit'); }
 
 // ---------- menus ----------
 function openTitleMenu() {
@@ -227,6 +236,9 @@ function buildBillboards() {
   }
   if (!lvl.hasCrown || G.crownTaken) {
     out.push({ x: lvl.exit.x + 0.5, y: lvl.exit.y + 0.5, img: SPRITES.stairs[0], hFrac: 0.9, zOff: 0, glow: false });
+  }
+  if (lvl.floorNum > 0) { // the way back up; the surface has none
+    out.push({ x: lvl.start.x + 0.5, y: lvl.start.y + 0.5, img: SPRITES.stairsUp[0], hFrac: 0.9, zOff: 0, glow: false });
   }
   for (const it of G.items) {
     const bobZ = 0.04 + Math.sin(it.bob) * 0.02;
