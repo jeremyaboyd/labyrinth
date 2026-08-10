@@ -1,11 +1,13 @@
 // ---- game/touch: gamepad-style touch controls for coarse-pointer devices ----
 // An 8-way pad on the left walks, a rocker on the right turns, A/B/X/Y do
-// use/attack/map/journal, and a MENU pill on the bezel is Tab. Everything is
+// use/attack/map/journal, and a MENU pill above them is Tab. Everything is
 // fed through Input.setDown as synthetic key codes, so every screen keeps its
 // keyboard semantics untouched. One deviation, per the design: B is BACK (Tab)
 // inside any screen that is not play, the way a gamepad's B usually is.
 // Multi-touch: each control tracks its own touch by identifier, so walking,
 // turning and firing all at once works.
+// A real handheld is held to portrait — the manifest asks for it, the
+// Orientation API is tried, and a rotate prompt covers the gap in a plain tab.
 'use strict';
 
 // assigned onto window so main.js's fitCanvas can probe it safely at any time
@@ -17,13 +19,30 @@ window.TouchUI = (() => {
       && window.matchMedia && matchMedia('(pointer: coarse)').matches);
   if (!active) return { active: false, reserve: () => ({ x: 0, y: 0 }) };
 
-  const SIDE = 156;   // width reserved each side of the screen, landscape
-  const BOTTOM = 190; // height reserved under the screen, portrait
-  const BEZEL = 44;   // bezel strip that carries the MENU pill
+  // a real phone or tablet, as opposed to a desktop forced on with ?touch=1.
+  // Only a real one gets held to portrait; on a desktop the landscape layout
+  // is how you test the pads.
+  const mobile = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+
+  const SIDE = 156;  // width reserved each side of the screen, landscape
+  const CLUSTER = 204; // height of the right-hand cluster: MENU, ABXY, rocker
+  const LIFT = 56;   // how far the pads sit off the bottom edge, portrait
+  const LIFT_L = 28; // ditto landscape, where there is less height to give
 
   function portrait() { return window.innerHeight > window.innerWidth; }
+
+  // the home-indicator strip on a notched phone, measured rather than guessed:
+  // env() is only legible to CSS, so a zero-width probe reports it back
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;left:0;bottom:0;width:0;pointer-events:none;'
+    + 'height:env(safe-area-inset-bottom,0px);';
+  document.body.appendChild(probe);
+  const safeBottom = () => Math.round(probe.getBoundingClientRect().height);
+
   function reserve() {
-    return portrait() ? { x: 12, y: BOTTOM + BEZEL } : { x: SIDE * 2 + 16, y: BEZEL };
+    return portrait()
+      ? { x: 12, y: LIFT + CLUSTER + 12 + safeBottom() }
+      : { x: SIDE * 2 + 16, y: 12 };
   }
 
   // ---------- chrome ----------
@@ -35,9 +54,14 @@ window.TouchUI = (() => {
   const style = document.createElement('style');
   style.textContent = `
     .tui { position: fixed; z-index: 10; user-select: none; -webkit-user-select: none;
-      -webkit-tap-highlight-color: transparent; touch-action: none; }
-    /* the round well the d-pad sits in, dished into the body */
-    #tuiMove { left: 10px; bottom: 24px; width: 132px; height: 132px; border-radius: 50%;
+      -webkit-tap-highlight-color: transparent; }
+    /* touch-action does not inherit, and every part of a pad must swallow
+       scrolling and double-tap zoom, not just its outer box */
+    .tui, .tui * { touch-action: none; }
+    /* the round well the d-pad sits in, dished into the body. Its centre lines
+       up with the middle of the ABXY diamond so both thumbs sit at one height. */
+    #tuiMove { left: 10px; bottom: calc(var(--tui-lift) + 43px);
+      width: 132px; height: 132px; border-radius: 50%;
       background: radial-gradient(circle at 35% 30%, #241b12, #15100a 60%, #0c0906);
       border: 2px solid #060404;
       box-shadow: inset 0 3px 5px rgba(0,0,0,0.8), inset 0 -2px 3px rgba(190,150,90,0.05),
@@ -62,8 +86,9 @@ window.TouchUI = (() => {
     #tuiMove .tS { left: 59px; bottom: 14px; border-top: 10px solid #171310; border-bottom: none; }
     #tuiMove .tW { top: 59px; left: 14px; border-right: 10px solid #171310; border-left: none; }
     #tuiMove .tE { top: 59px; right: 14px; border-left: 10px solid #171310; border-right: none; }
-    /* right cluster: dished plate, ABXY diamond, the turn rocker under the thumb */
-    #tuiRight { right: 10px; bottom: 24px; width: 136px; height: 168px; }
+    /* right cluster: dished plate, MENU on top, ABXY diamond, the turn rocker
+       under the thumb */
+    #tuiRight { right: 10px; bottom: var(--tui-lift); width: 136px; height: 204px; }
     #tuiRight::before { content: ''; position: absolute; inset: -8px; border-radius: 40px;
       background: radial-gradient(circle at 35% 25%, #221a11, #140f09 65%, #0c0906);
       border: 2px solid #060404;
@@ -78,8 +103,8 @@ window.TouchUI = (() => {
       text-shadow: 0 -1px 0 rgba(0,0,0,0.8), 0 1px 1px rgba(230,190,130,0.14);
       box-shadow: 0 3px 6px rgba(0,0,0,0.6), inset 0 1px 2px rgba(230,190,130,0.12),
         inset 0 -2px 3px rgba(0,0,0,0.45); }
-    #tuiY { left: 45px; top: 0; }    #tuiX { left: 0;  top: 38px; }
-    #tuiB { left: 90px; top: 38px; } #tuiA { left: 45px; top: 76px; }
+    #tuiY { left: 45px; top: 34px; }  #tuiX { left: 0;  top: 72px; }
+    #tuiB { left: 90px; top: 72px; }  #tuiA { left: 45px; top: 110px; }
     /* the rocker: one convex pill, a groove down the middle */
     #tuiRock { position: absolute; left: 0; right: 0; bottom: 0; height: 40px;
       display: flex; border: 1px solid #080604; border-radius: 20px; overflow: hidden;
@@ -90,9 +115,9 @@ window.TouchUI = (() => {
       background: linear-gradient(160deg, #38302a 0%, #2a231d 50%, #1c1712 100%);
       text-shadow: 0 -1px 0 rgba(0,0,0,0.8), 0 1px 1px rgba(230,190,130,0.14); }
     #tuiRock div:first-child { border-right: 2px solid #0c0906; }
-    /* START-style pill, recessed into the bezel */
-    #tuiMenu { left: 50%; transform: translateX(-50%); bottom: 8px; width: 88px;
-      height: 26px; border-radius: 13px; border: 1px solid #080604;
+    /* START-style pill, recessed into the plate above the buttons */
+    #tuiMenu { position: absolute; left: 50%; transform: translateX(-50%); top: 0;
+      width: 88px; height: 26px; border-radius: 13px; border: 1px solid #080604;
       background: linear-gradient(170deg, #332b23, #201a14 60%, #171310);
       color: #a09070; font: bold 10px 'Courier New', monospace;
       display: flex; align-items: center; justify-content: center; letter-spacing: 3px;
@@ -103,13 +128,32 @@ window.TouchUI = (() => {
       background: radial-gradient(circle at 40% 40%, #2a231d, #17120d 70%) !important;
       box-shadow: inset 0 3px 5px rgba(0,0,0,0.7) !important; }
     #tuiMove .arm.on { transform: none; }
+    /* the pill is centred by a transform, so its pressed state has to keep it */
+    #tuiMenu.on { transform: translateX(-50%) translateY(1px); }
     #tuiRock div.on { transform: none;
       background: linear-gradient(160deg, #1c1712, #241d17) !important;
       box-shadow: inset 0 3px 5px rgba(0,0,0,0.7); }
-    /* the screen sits in a bezel between the pads */
+    /* the screen sits in a bezel, centred in whatever the pads leave over */
     body.tui-on #screen { border: 5px solid #14100c; border-radius: 4px; }
     body.tui-on { cursor: default; }
-    body.tui-portrait #frame { align-items: flex-start; padding-top: 10px; }
+    body.tui-portrait #frame { padding-bottom: var(--tui-resy); }
+    body.tui-landscape #frame { padding-left: var(--tui-resx);
+      padding-right: var(--tui-resx); }
+    /* held to portrait: in landscape the pads go away and this stands in */
+    #tuiRotate { position: fixed; inset: 0; z-index: 20; display: none;
+      flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+      background: #050403; color: #a09070;
+      font: bold 13px 'Courier New', monospace; letter-spacing: 3px; text-align: center; }
+    body.tui-rotate #tuiRotate { display: flex; }
+    body.tui-rotate .tui { display: none; }
+    /* a phone tipping upright, in the same molded plastic as the pads */
+    #tuiRotate .phone { width: 88px; height: 52px; border-radius: 9px;
+      border: 3px solid #6b5a3c; background: linear-gradient(160deg, #241d17, #12100c);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6); animation: tuiTip 2.2s ease-in-out infinite; }
+    @keyframes tuiTip {
+      0%, 35% { transform: rotate(0deg); }
+      60%, 100% { transform: rotate(-90deg); }
+    }
   `;
   document.head.appendChild(style);
 
@@ -128,17 +172,45 @@ window.TouchUI = (() => {
     + '<div class="tip tW"></div><div class="tip tE"></div>'
     + '<div class="cap"></div><div class="dot"></div>');
   const right = el('tuiRight', 'tui',
-    '<div id="tuiY" class="tuiBtn">Y</div><div id="tuiX" class="tuiBtn">X</div>'
+    '<div id="tuiMenu">MENU</div>'
+    + '<div id="tuiY" class="tuiBtn">Y</div><div id="tuiX" class="tuiBtn">X</div>'
     + '<div id="tuiB" class="tuiBtn">B</div><div id="tuiA" class="tuiBtn">A</div>'
     + '<div id="tuiRock"><div id="tuiL">&lt;</div><div id="tuiR">&gt;</div></div>');
-  const menu = el('tuiMenu', 'tui', 'MENU');
+  const menu = right.querySelector('#tuiMenu');
+  el('tuiRotate', '', '<div class="phone"></div><div>TURN YOUR DEVICE UPRIGHT</div>');
 
   function layout() {
-    document.body.classList.add('tui-on');
-    document.body.classList.toggle('tui-portrait', portrait());
+    const p = portrait(), r = reserve();
+    const b = document.body;
+    b.classList.add('tui-on');
+    b.classList.toggle('tui-portrait', p);
+    b.classList.toggle('tui-landscape', !p);
+    // a real phone is held upright; a desktop on ?touch=1 keeps its landscape
+    const nagging = mobile && !p;
+    if (nagging && !b.classList.contains('tui-rotate')) releaseAll();
+    b.classList.toggle('tui-rotate', nagging);
+    b.style.setProperty('--tui-lift', (p ? LIFT : LIFT_L) + safeBottom() + 'px');
+    b.style.setProperty('--tui-resy', r.y + 'px');
+    b.style.setProperty('--tui-resx', (r.x / 2) + 'px');
     fitCanvas();
   }
   window.addEventListener('resize', layout);
+  window.addEventListener('orientationchange', layout);
+  // resize alone is not dependable across mobile browsers when only the
+  // orientation changed, so watch the media query that says so outright
+  if (window.matchMedia) {
+    const mq = matchMedia('(orientation: portrait)');
+    if (mq.addEventListener) mq.addEventListener('change', layout);
+    else if (mq.addListener) mq.addListener(layout);
+  }
+
+  // installed as a PWA the manifest holds portrait for us; in a tab the lock
+  // only takes in fullscreen, so try once and let it fail quietly if not.
+  if (mobile && screen.orientation && screen.orientation.lock) {
+    const tryLock = () => { try { screen.orientation.lock('portrait').catch(() => {}); } catch (e) {} };
+    tryLock();
+    document.addEventListener('fullscreenchange', tryLock);
+  }
 
   // ---------- the 8-way walking pad ----------
   // octants from +x clockwise (screen y grows downward)
@@ -233,8 +305,14 @@ window.TouchUI = (() => {
   }
 
   let bHeld = false; // for hold-to-keep-shooting
+  const releasers = []; // one per control, for letting go of everything at once
   function wireButton(node, name) {
     const held = {}; // touch id -> code it pressed
+    releasers.push(() => {
+      for (const id of Object.keys(held)) { Input.setDown(held[id], false); delete held[id]; }
+      node.classList.remove('on');
+      if (name === 'B') bHeld = false;
+    });
     node.addEventListener('touchstart', (e) => {
       e.preventDefault();
       for (const t of e.changedTouches) {
@@ -266,6 +344,18 @@ window.TouchUI = (() => {
   wireButton(right.querySelector('#tuiX'), 'X');
   wireButton(right.querySelector('#tuiY'), 'Y');
   wireButton(menu, 'MENU');
+
+  // turning the phone sideways hides the pads mid-touch, and a touch on a
+  // hidden control never ends — so drop everything the moment they go away
+  function releaseAll() {
+    moveTouch = null; setMoveCodes([]); dot.style.transform = '';
+    rockTouch = null;
+    if (rockCode) Input.setDown(rockCode, false);
+    rockCode = null;
+    rockL.classList.remove('on');
+    rockR.classList.remove('on');
+    for (const f of releasers) f();
+  }
 
   // a held B keeps loosing; startAttack gates itself on the weapon's cooldown.
   // (Held keyboard space does not repeat, but a held trigger should.)
