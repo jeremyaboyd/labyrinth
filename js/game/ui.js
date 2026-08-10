@@ -287,14 +287,10 @@ function drawTitleBase() {
 function drawTitle() {
   drawTitleBase();
 
-  drawTextCentered(ctx, 'THE CROWN OF THE DEEP LIES LOST', W / 2, 76, '#7a7268', 1);
-  drawTextCentered(ctx, 'ON THE 8TH FLOOR OF THE LABYRINTH.', W / 2, 86, '#7a7268', 1);
-  drawTextCentered(ctx, 'NONE WHO SOUGHT IT HAVE RETURNED.', W / 2, 96, '#7a7268', 1);
+  // no story spoilers here: where the crown lies is the first quest's to tell
+  drawMenuItems(G.menu.items, G.menu.sel, 96, 13);
 
-  drawMenuItems(G.menu.items, G.menu.sel, 108, 11);
-
-  // the controls used to be listed here; HELP carries them now
-  drawTextCentered(ctx, 'ARROWS SELECT   ENTER CONFIRM', W / 2, VIEW_H + 8, '#544c40', 1);
+  drawTextCentered(ctx, 'WASD/ARROWS SELECT   ENTER/E CONFIRM', W / 2, VIEW_H + 8, '#544c40', 1);
   if (G.best > 1) drawTextCentered(ctx, 'DEEPEST DELVE: FLOOR ' + G.best, W / 2, VIEW_H + 24, '#6a6058', 1);
 }
 
