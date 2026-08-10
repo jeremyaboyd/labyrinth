@@ -1,4 +1,4 @@
-# LABERINTH — Crown of the Deep
+# LABYRINTH — Crown of the Deep
 
 An old-school first-person dungeon crawler in the style of early-90s DOS games
 (Wolfenstein 3D / DOOM era). Software-rendered raycaster at 320×200, chunky

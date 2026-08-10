@@ -1,4 +1,4 @@
-// ---- LABERINTH: main engine, raycaster, entities, states ----
+// ---- LABYRINTH: main engine, raycaster, entities, states ----
 'use strict';
 
 const W = 320, H = 200;
@@ -47,7 +47,7 @@ const G = {
   showMap: false,
   titleAngle: 0,
   crownTaken: false,
-  best: parseInt(localStorage.getItem('laberinth.best') || '0', 10),
+  best: parseInt(localStorage.getItem('labyrinth.best') || '0', 10),
   stats: { kills: 0 },
 };
 
@@ -83,7 +83,7 @@ function loadFloor(n) {
     };
   });
   G.items = lvl.items.map(it => ({ ...it, bob: Math.random() * 10 }));
-  if (n > G.best) { G.best = n; localStorage.setItem('laberinth.best', String(n)); }
+  if (n > G.best) { G.best = n; localStorage.setItem('labyrinth.best', String(n)); }
 }
 
 function newGame() {
@@ -792,7 +792,7 @@ function drawTitle() {
   ctx.fillRect(0, VIEW_H, W, HUD_H);
 
   const flick = 0.8 + 0.2 * Math.sin(G.time * 9) * Math.sin(G.time * 3.7);
-  drawTextCentered(ctx, 'LABERINTH', W / 2, 30, '#c8a038', 4);
+  drawTextCentered(ctx, 'LABYRINTH', W / 2, 30, '#c8a038', 4);
   drawTextCentered(ctx, 'CROWN OF THE DEEP', W / 2, 66, '#8a7040', 1);
 
   // torches flanking the title
