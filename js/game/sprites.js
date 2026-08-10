@@ -402,6 +402,25 @@ function drawVillager(ctx, p, pose, pal) {
   p.px(cx, 10, '#a87858');                            // mouth
 }
 
+const KING_PAL = { tunic: '#5a2a72', tunicL: '#7c3f98', tunicD: '#3a1a4c', legs: '#3a3038', skin: '#d8b088', hair: '#c8c0b0' };
+
+function drawKing(ctx, p, pose) {
+  drawVillager(ctx, p, pose, KING_PAL);
+  const cx = 12;
+  p.rect(cx - 4, 17, 9, 3, '#c8a038');   // gold-trimmed hem
+  p.rect(cx - 5, 12, 2, 8, '#c8a038');   // mantle edges
+  p.rect(cx + 4, 12, 2, 8, '#c8a038');
+  p.rect(cx - 5, 1, 11, 3, '#d8a828');   // crown band
+  p.rect(cx - 5, 0, 2, 2, '#f0c848');    // points
+  p.rect(cx - 1, 0, 2, 2, '#f0c848');
+  p.rect(cx + 3, 0, 2, 2, '#f0c848');
+  p.px(cx - 3, 2, '#e02040');            // gems
+  p.px(cx + 1, 2, '#2050e0');
+  p.px(cx + 4, 2, '#20c050');
+  p.rect(cx - 3, 11, 7, 1, '#e8d8a8');   // beard
+  p.rect(cx - 2, 12, 5, 1, '#e8d8a8');
+}
+
 // ---------------- first-person weapon ----------------
 
 // gauntleted fist + forearm running off the bottom-right corner
@@ -572,6 +591,11 @@ function generateSprites() {
     makeSpriteFrame(16, 48, (c, p) => drawLamp(c, p, 0)),
     makeSpriteFrame(16, 48, (c, p) => drawLamp(c, p, 1)),
     makeSpriteFrame(16, 48, (c, p) => drawLamp(c, p, 2)),
+  ];
+  SPRITES.king = [
+    makeSpriteFrame(24, 32, (c, p) => drawKing(c, p, { leg: 0, arm: 0 })),
+    makeSpriteFrame(24, 32, (c, p) => drawKing(c, p, { leg: 0, arm: 1 })),
+    makeSpriteFrame(24, 32, (c, p) => drawKing(c, p, { leg: 0, arm: 0 })),
   ];
   VILLAGER_PALS.forEach((pal, i) => {
     SPRITES['villager' + i] = [

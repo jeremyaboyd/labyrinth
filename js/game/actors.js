@@ -11,6 +11,7 @@ function newPlayer() {
     bobPhase: 0, moving: false, stepAcc: 0,
     inv: newInventory(),
     equip: { weapon: null, armor: null, ammo: null },
+    quests: newQuestLog(),
   };
   invAdd(p.inv, START_KIT.weapon, 1);
   invAdd(p.inv, 'potionRed', START_KIT.potions);
@@ -100,10 +101,32 @@ function shopAtCell(lvl, x, y) {
   return lvl.shops.find(s => s.idx === idx) || null;
 }
 
-// E: open the door or lean into the shop window ahead of the player
+// the nearest person the player is actually looking at
+function npcInFront() {
+  const p = G.player;
+  const dirX = Math.cos(p.a), dirY = Math.sin(p.a);
+  let best = null, bestD = 1.8;
+  for (const v of G.npcs) {
+    const dx = v.x - p.x, dy = v.y - p.y;
+    const d = Math.hypot(dx, dy);
+    if (d > bestD) continue;
+    if (d > 0.4 && (dx / d) * dirX + (dy / d) * dirY < 0.55) continue;
+    best = v; bestD = d;
+  }
+  return best;
+}
+
+// E: speak to whoever is there, else open the door or shop window ahead
 function useFront() {
   const p = G.player;
   const lvl = G.level;
+
+  const npc = npcInFront();
+  if (npc) {
+    startDialogue(npc.role === 'king' ? kingDialogue(p) : villagerDialogue(npc));
+    return;
+  }
+
   for (const reach of [0.9, 1.4]) {
     const cx = p.x + Math.cos(p.a) * reach, cy = p.y + Math.sin(p.a) * reach;
     const c = cellAt(lvl, cx, cy);
@@ -231,6 +254,7 @@ function updatePlay(dt) {
         SFX.pickupKey();
       } else if (it.type === 'crown') {
         G.crownTaken = true;
+        questComplete(p, 'crown');
         G.state = 'win';
         SFX.victory(); // the delve carries on, so the mouse stays captured
       }
@@ -266,17 +290,19 @@ function updatePlay(dt) {
 }
 
 // ---------- villagers: they mill about, and that is all ----------
-function makeVillager(x, y, i) {
+function makeVillager(x, y, i, role) {
   return {
-    x, y, kind: i % 3,
+    x, y, role: role || 'villager', kind: i % 3, line: i,
     dir: (i * 1.7) % (Math.PI * 2), dirT: 0,
     walkPhase: i, moving: false, idle: false,
+    still: role === 'king', // the king does not pace about
   };
 }
 
 function updateVillagers(dt) {
   const lvl = G.level;
   for (const v of G.npcs) {
+    if (v.still) { v.moving = false; continue; }
     v.dirT -= dt;
     if (v.dirT <= 0) {
       v.dir = Math.random() * Math.PI * 2;

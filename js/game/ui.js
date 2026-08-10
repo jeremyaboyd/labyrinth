@@ -83,7 +83,7 @@ function drawHUD() {
   if (latest && PANEL_STATES.includes(G.state)) {
     drawText(ctx, latest.text, 8, VIEW_H + 31, '#c8b070', 1);
   } else {
-    drawText(ctx, 'M MAP  E USE  I PACK  Q QUICK  TAB MENU', 8, VIEW_H + 31, '#4a4238', 1);
+    drawText(ctx, 'M MAP  E USE  I PACK  Q QUICK  J LOG  TAB MENU', 8, VIEW_H + 31, '#4a4238', 1);
   }
 }
 
@@ -103,6 +103,20 @@ function useHint() {
   }
   // sits above the shop plaque rather than across it
   if (hint) drawTextCentered(ctx, hint, W / 2, VIEW_H - 44, '#d0c090', 1);
+}
+
+// the quest you are tracking, top right of the view
+function drawActiveQuest() {
+  const def = activeQuestDef(G.player);
+  if (!def) return;
+  const label = def.hint;
+  const w = textWidth(label, 1);
+  ctx.fillStyle = 'rgba(8,6,4,0.55)';
+  ctx.fillRect(W - w - 12, 5, w + 8, 18);
+  ctx.fillStyle = '#6a5a40';
+  ctx.fillRect(W - w - 12, 5, w + 8, 1);
+  drawText(ctx, 'TRACKING', W - w - 8, 8, '#6a6058', 1);
+  drawText(ctx, label, W - w - 8, 16, '#e8c040', 1);
 }
 
 function drawMessages() {
@@ -129,7 +143,7 @@ function drawMinimap() {
   ctx.fillRect(ox - 5, oy - 5, 1, mh + 10);
   ctx.fillRect(ox + mw + 4, oy - 5, 1, mh + 10);
   for (let y = 0; y < lvl.h; y++) for (let x = 0; x < lvl.w; x++) {
-    if (!G.explored[y * lvl.w + x]) continue;
+    if (G.fogOfWar && !G.explored[y * lvl.w + x]) continue;
     const c = lvl.map[y * lvl.w + x];
     let col;
     if (c === 0) {
@@ -160,16 +174,24 @@ function drawMinimap() {
       ctx.fillRect(ox + x * scale, oy + y * scale, scale, scale);
     }
   }
+  // where the tracked quest points, if that ground has been walked
+  const qm = questMarker(G.player);
+  if (qm && (!G.fogOfWar || G.explored[qm.y * lvl.w + qm.x])) {
+    const mx = ox + qm.x * scale, my = oy + qm.y * scale;
+    ctx.fillStyle = Math.sin(G.time * 6) > -0.2 ? '#ffe080' : '#8a6a20';
+    ctx.fillRect(Math.round(mx) - 1, Math.round(my) - 3, 3, 7);
+    ctx.fillRect(Math.round(mx) - 3, Math.round(my) - 1, 7, 3);
+  }
   // key marker
   for (const it of G.items) {
-    if (it.type === 'key' && G.explored[(it.y | 0) * lvl.w + (it.x | 0)]) {
+    if (it.type === 'key' && (!G.fogOfWar || G.explored[(it.y | 0) * lvl.w + (it.x | 0)])) {
       ctx.fillStyle = '#ffd830';
       ctx.fillRect(ox + (it.x | 0) * scale, oy + (it.y | 0) * scale, scale, scale);
     }
   }
   // enemies in explored territory
   for (const e of G.enemies) {
-    if (G.explored[(e.y | 0) * lvl.w + (e.x | 0)]) {
+    if (!G.fogOfWar || G.explored[(e.y | 0) * lvl.w + (e.x | 0)]) {
       ctx.fillStyle = '#d02020';
       ctx.fillRect(Math.round(ox + e.x * scale) - 1, Math.round(oy + e.y * scale) - 1, 2, 2);
     }

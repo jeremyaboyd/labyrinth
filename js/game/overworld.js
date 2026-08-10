@@ -80,6 +80,8 @@ const OW_START = { x: 28, y: 28, a: -Math.PI / 2 };
 const OW_VILLAGERS = [
   [24, 28], [32, 28], [20, 28], [36, 28], [28, 32], [28, 24], [26, 35],
 ];
+// he waits in the courtyard, between the gate and the stair down
+const OW_KING = [14, 13];
 
 function buildOverworld() {
   const h = OVERWORLD_MAP.length;
@@ -123,7 +125,8 @@ function buildOverworld() {
     items: [],
     torches: [],
     shops: [],
-    villagers: OW_VILLAGERS.map(([x, y]) => ({ x: x + 0.5, y: y + 0.5 })),
+    villagers: OW_VILLAGERS.map(([x, y]) => ({ x: x + 0.5, y: y + 0.5, role: 'villager' }))
+      .concat([{ x: OW_KING[0] + 0.5, y: OW_KING[1] + 0.5, role: 'king' }]),
     floorNum: 0,
     name: 'THE KINGSHORE',
     hasCrown: false,
