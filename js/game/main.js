@@ -54,6 +54,7 @@ const G = {
   journal: [],    // quest rows, rebuilt each time J is pressed
   dialogue: null, // who is speaking, and what they say
   fogOfWar: true,
+  showFps: false,
   activeSlot: null, // save slot this run writes to (null until saved/loaded)
 };
 
@@ -157,12 +158,13 @@ function optionsLabels() {
   return [
     'SOUND: ' + (Synth.enabled ? 'ON' : 'OFF'),
     'FOG OF WAR: ' + (G.fogOfWar ? 'ON' : 'OFF'),
+    'SHOW FPS: ' + (G.showFps ? 'ON' : 'OFF'),
     'BACK',
   ];
 }
 
 function openOptions(from) {
-  G.menu.ids = ['sound', 'fog', 'back'];
+  G.menu.ids = ['sound', 'fog', 'fps', 'back'];
   G.menu.items = optionsLabels();
   G.menu.sel = 0;
   G.menu.cameFrom = from;
@@ -367,6 +369,9 @@ function handlePress(code) {
       } else if (id === 'fog') {
         G.fogOfWar = !G.fogOfWar;
         G.menu.items = optionsLabels();
+      } else if (id === 'fps') {
+        G.showFps = !G.showFps;
+        G.menu.items = optionsLabels();
       } else {
         closeOptions();
       }
@@ -450,8 +455,18 @@ Input.init(canvas, {
 
 // ---------- main loop ----------
 let lastT = 0;
+let fpsAvg = 0;
 function frame(t) {
   requestAnimationFrame(frame);
+  // the raw frame gap, smoothed, so the readout does not flicker
+  const raw = (t - lastT) / 1000;
+  if (raw > 0) fpsAvg += (1 / raw - fpsAvg) * 0.08;
+  drawFrame(t);
+  // stamped over whatever the frame drew, so every screen carries it
+  if (G.showFps) drawText(ctx, Math.round(fpsAvg), 3, 3, '#ffffff', 1);
+}
+
+function drawFrame(t) {
   // clamp: a clock that jumps backwards must never rewind animation phases
   const dt = clamp((t - lastT) / 1000 || 0.016, 0, 0.05);
   lastT = t;

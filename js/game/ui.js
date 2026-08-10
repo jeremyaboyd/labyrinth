@@ -377,6 +377,7 @@ function drawOptions() {
   drawVignetteOverlay('#000000', 0.6);
   drawPanel(30, 40, W - 60, 92);
   drawTextCentered(ctx, 'OPTIONS', W / 2, 50, '#c8a038', 1);
-  drawMenuItems(G.menu.items, G.menu.sel, 74, 16);
-  drawTextCentered(ctx, 'ENTER/E TOGGLE   TAB BACK', W / 2, 118, '#544c40', 1);
+  // four rows have to clear the footer inside the same box
+  drawMenuItems(G.menu.items, G.menu.sel, 64, 13);
+  drawTextCentered(ctx, 'ENTER/E TOGGLE   TAB BACK', W / 2, 120, '#544c40', 1);
 }

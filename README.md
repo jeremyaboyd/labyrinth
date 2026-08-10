@@ -36,7 +36,8 @@ Then visit `http://localhost:8123`.
 | `↑` `↓` to move, `Enter` / numpad `Enter` / `E` to confirm | Navigate menus |
 
 HELP, on both the title and pause menus, lists all of the above in game.
-Sound is toggled from OPTIONS, on the same two menus.
+Sound, fog of war and an FPS readout are toggled from OPTIONS, on the same
+two menus.
 
 ## Saving
 
