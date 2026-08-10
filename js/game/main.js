@@ -41,7 +41,7 @@ const G = {
   crownTaken: false,
   best: parseInt(localStorage.getItem('labyrinth.best') || '0', 10),
   stats: { kills: 0 },
-  menu: { items: [], ids: [], sel: 0, slots: null, actions: [], actionSel: 0, actionSlot: 0, optionsFrom: 'title' },
+  menu: { items: [], ids: [], sel: 0, scroll: 0, slots: null, actions: [], actionSel: 0, actionSlot: 0, optionsFrom: 'title' },
   shop: null, // shop whose window is currently open
   hot: [],    // quick-item rows, rebuilt each time Q is pressed
   activeSlot: null, // save slot this run writes to (null until saved/loaded)

@@ -59,6 +59,7 @@ function openHotlist() {
   G.hot = hotlistEntries();
   if (!G.hot.length) { addMsg('NOTHING TO DRINK'); SFX.denied(); return; }
   G.menu.sel = 0;
+  G.menu.scroll = 0;
   G.state = 'hotlist';
   SFX.menuMove();
 }
@@ -66,6 +67,7 @@ function openHotlist() {
 function openShop(shop) {
   G.shop = shop;
   G.menu.sel = 0;
+  G.menu.scroll = 0;
   G.state = 'shop';
   SFX.menuSelect(); // the greeting is the panel subtitle, not a floating message
 }
@@ -260,27 +262,66 @@ function drawItemAction() {
 function drawHotlist() {
   const p = G.player;
   drawVignetteOverlay('#000000', 0.55);
-  const rows = G.hot.length;
-  const h = 30 + rows * 14 + 14;
+  // a pack full of draughts would otherwise grow the panel off both edges
+  const total = G.hot.length;
+  const vis = Math.min(HOT_ROWS_VISIBLE, total);
+  const scrolls = total > vis;
+  const top = scrollWindow(G.menu.sel, total, vis, G.menu.scroll);
+  G.menu.scroll = top;
+  const h = 30 + vis * 14 + 14;
   const x = 66, y = Math.round((VIEW_H - h) / 2), w = 188; // fits the footer
   drawPanel(x, y, w, h);
   drawTextCentered(ctx, 'QUICK ITEMS', x + w / 2, y + 7, '#c8a038', 1);
-  G.hot.forEach((e, i) => {
-    const ry = y + 26 + i * 14;
-    if (i === G.menu.sel) highlightRow(x + 5, ry, w - 10);
+  for (let r = 0; r < vis; r++) {
+    const i = top + r;
+    const e = G.hot[i];
+    const ry = y + 26 + r * 14;
+    if (i === G.menu.sel) highlightRow(x + 5, ry, w - 10 - (scrolls ? 8 : 0));
     const d = ITEMS[e.id];
     drawIcon(d.icon, x + 8, ry - 3, 12);
     drawText(ctx, (i + 1) + '. ' + d.name, x + 24, ry, i === G.menu.sel ? '#ffe080' : '#b8ac98', 1);
-    drawRight('X' + e.n, x + w - 8, ry, '#8a8078');
-  });
+    drawRight('X' + e.n, x + w - (scrolls ? 16 : 8), ry, '#8a8078');
+  }
+  if (scrolls) drawScrollbar(x + w - 7, y + 22, vis * 14, top, total, vis);
   drawTextCentered(ctx, 'ENTER/E DRINK   Q OR TAB CLOSE', x + w / 2, y + h - 11, '#544c40', 1);
   drawText(ctx, 'HP ' + Math.ceil(p.hp) + '/' + p.maxHp + '   MP ' + Math.floor(p.mp) + '/' + p.maxMp,
     x + 8, y + 16, '#6a6058', 1);
 }
 
+// as many stock rows as fit above the detail block
+const SHOP_ROW_H = 14;
+const SHOP_ROW_TOP = 42;
+const SHOP_ROWS_VISIBLE = 5;
+const HOT_ROWS_VISIBLE = 6;
+
+// slide the window so `sel` stays inside it; returns the new first-row index
+function scrollWindow(sel, total, visible, cur) {
+  if (total <= visible) return 0;
+  let s = cur || 0;
+  if (sel < s) s = sel;
+  if (sel >= s + visible) s = sel - visible + 1;
+  return clamp(s, 0, total - visible);
+}
+
+// 3px gutter bar showing where the window sits in the list
+function drawScrollbar(x, y, h, top, total, visible) {
+  ctx.fillStyle = '#241f18';
+  ctx.fillRect(x, y, 3, h);
+  const thumbH = Math.max(6, Math.round(h * visible / total));
+  const thumbY = y + Math.round((h - thumbH) * (top / (total - visible)));
+  ctx.fillStyle = '#8a7a50';
+  ctx.fillRect(x, thumbY, 3, thumbH);
+}
+
 function drawShop() {
   const p = G.player;
   const shop = G.shop;
+  const total = shop.stock.length;
+  const vis = Math.min(SHOP_ROWS_VISIBLE, total);
+  const scrolls = total > vis;
+  const top = scrollWindow(G.menu.sel, total, vis, G.menu.scroll);
+  G.menu.scroll = top;
+
   drawVignetteOverlay('#000000', 0.62);
   drawPanel(10, 6, W - 20, VIEW_H - 16);
   drawTextCentered(ctx, SHOP_TITLE[shop.kind], W / 2, 12, '#c8a038', 1);
@@ -288,10 +329,13 @@ function drawShop() {
   ctx.fillStyle = '#3a3028';
   ctx.fillRect(18, 34, W - 36, 1);
 
-  shop.stock.forEach((ln, i) => {
-    const y = 42 + i * 14;
+  const rowW = (W - 32) - (scrolls ? 10 : 0); // leave the gutter for the bar
+  for (let r = 0; r < vis; r++) {
+    const i = top + r;
+    const ln = shop.stock[i];
     const d = ITEMS[ln.id];
-    if (i === G.menu.sel) highlightRow(16, y, W - 32);
+    const y = SHOP_ROW_TOP + r * SHOP_ROW_H;
+    if (i === G.menu.sel) highlightRow(16, y, rowW);
     const out = ln.n <= 0;
     const dim = out || p.gold < ln.price;
     drawIcon(d.icon, 20, y - 3, 12);
@@ -299,7 +343,9 @@ function drawShop() {
       out ? '#4a4238' : (i === G.menu.sel ? '#ffe080' : '#b8ac98'), 1);
     drawRight(out ? 'SOLD OUT' : ln.price + ' G', W - 24, y, out ? '#5a3030' : (dim ? '#7a5a28' : '#e8c040'));
     if (!out && ln.n > 1) drawRight('X' + ln.n, W - 74, y, '#6a6058');
-  });
+  }
+
+  if (scrolls) drawScrollbar(300, SHOP_ROW_TOP - 4, vis * SHOP_ROW_H, top, total, vis);
 
   const sel = shop.stock[G.menu.sel];
   if (sel) {
