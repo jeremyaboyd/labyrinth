@@ -220,10 +220,7 @@ function handlePress(code) {
       SFX.menuSelect();
       if (id === 'resume') G.state = 'play';
       else if (id === 'save') openSlotMenu('savemenu');
-      else if (id === 'quit') {
-        if (G.activeSlot != null && SaveSys.write(G.activeSlot)) addMsg('AUTOSAVED TO SLOT ' + (G.activeSlot + 1));
-        openTitleMenu();
-      }
+      else if (id === 'quit') openTitleMenu(); // deliberately does not save
     } else if (G.state === 'dead') {
       openTitleMenu();
     } else if (G.state === 'win') {

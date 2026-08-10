@@ -36,10 +36,11 @@ Then visit `http://localhost:8123`.
 
 Three save slots, stored in your browser's localStorage. Save any time from
 the pause menu (`Esc` → SAVE GAME); the game also autosaves to your slot on
-every stair descent and on quit-to-title. The title screen offers CONTINUE
-(most recent slot), NEW GAME, and LOAD GAME. A save captures the full
-mid-floor state — position, health, gold, keys, every enemy, item, opened
-door, and your explored map. Dungeon layouts are not stored: they regenerate
+every stair descent. Quitting to the title does **not** save — anything since
+your last save or descent is lost. The title screen offers CONTINUE (most
+recent slot), NEW GAME, and LOAD GAME. A save captures the full mid-floor
+state — position, health, gold, keys, every enemy, item, opened door, and
+your explored map. Dungeon layouts are not stored: they regenerate
 deterministically from the run's seed.
 
 ## The game
