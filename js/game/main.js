@@ -52,6 +52,7 @@ const G = {
   realms: {},     // portal id -> { deepest, names } for that descent
   surfaceName: 'THE SURFACE',
   surfaceWalked: false, // the surface stays fogged until you have been on it once
+  ambientT: 5,    // seconds until the world's next ambient mutter
   shop: null,     // shop whose window is currently open
   flights: [],    // floors the stair menu is offering
   flightDir: 'up',// which way that menu is going

@@ -358,6 +358,14 @@ function updatePlay(dt) {
   if (G.state !== 'play') return; // crown pickup may have ended the run
 
   G.clock = (G.clock + dt * HOURS_PER_SECOND) % 24;
+
+  // the world mutters to itself now and then: birds, drips, worse
+  G.ambientT -= dt;
+  if (G.ambientT <= 0) {
+    playAmbient();
+    G.ambientT = 6 + Math.random() * 9;
+  }
+
   updateVillagers(dt);
   updateEnemies(dt);
   updateProjectiles(dt);

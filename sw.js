@@ -1,10 +1,10 @@
-// ---- service worker: the whole game, kept on the device ----
+﻿// ---- service worker: the whole game, kept on the device ----
 // There is no build step and no runtime data, so the app shell IS the app:
 // precache every file at install and serve from the cache. Bump VERSION when
 // you ship, which is what evicts the old copy.
 'use strict';
 
-const VERSION = 'labyrinth-v5';
+const VERSION = 'labyrinth-v6';
 
 const SHELL = [
   './',
