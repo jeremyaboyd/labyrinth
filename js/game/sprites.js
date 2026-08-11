@@ -309,7 +309,11 @@ function drawTorch(ctx, p, flame) {
   p.px(8 + fx, 4 + fh + flame, '#f07010'); // spark
 }
 
-function drawStairs(ctx, p) {
+// drawStairsDown, not drawStairs: menus.js declares a drawStairs of its own for
+// the stairwell screen, and in classic scripts the last file loaded wins the
+// global. generateSprites() runs at boot, long after menus.js, so the short
+// name here silently resolved to that screen instead of this artist.
+function drawStairsDown(ctx, p) {
   // stone arch frame
   p.rect(2, 2, 28, 30, '#6a6258');
   p.rect(4, 4, 24, 28, '#141210');
@@ -641,7 +645,7 @@ function generateSprites() {
     makeSpriteFrame(16, 24, (c, p) => drawTorch(c, p, 1)),
     makeSpriteFrame(16, 24, (c, p) => drawTorch(c, p, 2)),
   ];
-  SPRITES.stairs = [makeSpriteFrame(32, 34, drawStairs)];
+  SPRITES.stairs = [makeSpriteFrame(32, 34, drawStairsDown)];
   SPRITES.stairsUp = [makeSpriteFrame(32, 34, drawStairsUp)];
   SPRITES.crown = [
     makeSpriteFrame(20, 16, (c, p) => drawCrown(c, p, 0)),
