@@ -23,7 +23,9 @@ const Input = (() => {
     window.addEventListener('keyup', (e) => { down[e.code] = false; });
 
     canvas.addEventListener('click', () => {
-      if (!locked && h.shouldLock && h.shouldLock()) canvas.requestPointerLock();
+      if (!locked && canvas.requestPointerLock && h.shouldLock && h.shouldLock()) {
+        canvas.requestPointerLock();
+      }
     });
     canvas.addEventListener('mousedown', (e) => {
       if (h.onMouseButton) h.onMouseButton(e.button);
@@ -41,7 +43,9 @@ const Input = (() => {
     for (const c of codes) if (down[c]) return true;
     return false;
   }
-  function exitLock() { document.exitPointerLock(); }
+  // Pointer Lock is desktop-only: Safari on iPhone ships neither half of the
+  // API, so an unguarded call here is a TypeError, not a no-op.
+  function exitLock() { if (document.exitPointerLock) document.exitPointerLock(); }
 
   // synthetic input (touch controls): hold or release a code as if it were a
   // key, firing the same press callback so game semantics stay in one place
