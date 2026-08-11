@@ -6,8 +6,9 @@
 // inside any screen that is not play, the way a gamepad's B usually is.
 // Multi-touch: each control tracks its own touch by identifier, so walking,
 // turning and firing all at once works.
-// A real handheld is held to portrait — the manifest asks for it, the
-// Orientation API is tried, and a rotate prompt covers the gap in a plain tab.
+// Both orientations play: portrait stacks the screen over the pads, landscape
+// sets the pads either side of it. Safe-area insets are honoured both ways, so
+// nothing lands under a notch or a home indicator.
 'use strict';
 
 // assigned onto window so main.js's fitCanvas can probe it safely at any time
@@ -19,11 +20,6 @@ window.TouchUI = (() => {
       && window.matchMedia && matchMedia('(pointer: coarse)').matches);
   if (!active) return { active: false, reserve: () => ({ x: 0, y: 0 }) };
 
-  // a real phone or tablet, as opposed to a desktop forced on with ?touch=1.
-  // Only a real one gets held to portrait; on a desktop the landscape layout
-  // is how you test the pads.
-  const mobile = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
-
   const SIDE = 156;  // width reserved each side of the screen, landscape
   const CLUSTER = 204; // height of the right-hand cluster: MENU, ABXY, rocker
   const LIFT = 56;   // how far the pads sit off the bottom edge, portrait
@@ -31,18 +27,29 @@ window.TouchUI = (() => {
 
   function portrait() { return window.innerHeight > window.innerWidth; }
 
-  // the home-indicator strip on a notched phone, measured rather than guessed:
-  // env() is only legible to CSS, so a zero-width probe reports it back
+  // The notch and the home indicator, measured rather than guessed: env() is
+  // only legible to CSS, so a hidden probe wearing them as padding reports all
+  // four back. Landscape needs the side insets as much as portrait needs the
+  // bottom one — in landscape the notch is beside the left-hand pad.
   const probe = document.createElement('div');
-  probe.style.cssText = 'position:fixed;left:0;bottom:0;width:0;pointer-events:none;'
-    + 'height:env(safe-area-inset-bottom,0px);';
+  probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;'
+    + 'pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px)'
+    + ' env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);';
   document.body.appendChild(probe);
-  const safeBottom = () => Math.round(probe.getBoundingClientRect().height);
+  function insets() {
+    const s = getComputedStyle(probe);
+    return {
+      r: Math.round(parseFloat(s.paddingRight) || 0),
+      b: Math.round(parseFloat(s.paddingBottom) || 0),
+      l: Math.round(parseFloat(s.paddingLeft) || 0),
+    };
+  }
 
   function reserve() {
+    const i = insets();
     return portrait()
-      ? { x: 12, y: LIFT + CLUSTER + 12 + safeBottom() }
-      : { x: SIDE * 2 + 16, y: 12 };
+      ? { x: 12 + i.l + i.r, y: LIFT + CLUSTER + 12 + i.b }
+      : { x: SIDE * 2 + 16 + i.l + i.r, y: 12 + i.b };
   }
 
   // ---------- chrome ----------
@@ -60,7 +67,7 @@ window.TouchUI = (() => {
     .tui, .tui * { touch-action: none; }
     /* the round well the d-pad sits in, dished into the body. Its centre lines
        up with the middle of the ABXY diamond so both thumbs sit at one height. */
-    #tuiMove { left: 10px; bottom: calc(var(--tui-lift) + 43px);
+    #tuiMove { left: calc(10px + var(--tui-safe-l, 0px)); bottom: calc(var(--tui-lift, 24px) + 43px);
       width: 132px; height: 132px; border-radius: 50%;
       background: radial-gradient(circle at 35% 30%, #241b12, #15100a 60%, #0c0906);
       border: 2px solid #060404;
@@ -88,7 +95,8 @@ window.TouchUI = (() => {
     #tuiMove .tE { top: 59px; right: 14px; border-left: 10px solid #171310; border-right: none; }
     /* right cluster: dished plate, MENU on top, ABXY diamond, the turn rocker
        under the thumb */
-    #tuiRight { right: 10px; bottom: var(--tui-lift); width: 136px; height: 204px; }
+    #tuiRight { right: calc(10px + var(--tui-safe-r, 0px)); bottom: var(--tui-lift, 24px);
+      width: 136px; height: 204px; }
     #tuiRight::before { content: ''; position: absolute; inset: -8px; border-radius: 40px;
       background: radial-gradient(circle at 35% 25%, #221a11, #140f09 65%, #0c0906);
       border: 2px solid #060404;
@@ -136,24 +144,9 @@ window.TouchUI = (() => {
     /* the screen sits in a bezel, centred in whatever the pads leave over */
     body.tui-on #screen { border: 5px solid #14100c; border-radius: 4px; }
     body.tui-on { cursor: default; }
-    body.tui-portrait #frame { padding-bottom: var(--tui-resy); }
-    body.tui-landscape #frame { padding-left: var(--tui-resx);
-      padding-right: var(--tui-resx); }
-    /* held to portrait: in landscape the pads go away and this stands in */
-    #tuiRotate { position: fixed; inset: 0; z-index: 20; display: none;
-      flex-direction: column; align-items: center; justify-content: center; gap: 18px;
-      background: #050403; color: #a09070;
-      font: bold 13px 'Courier New', monospace; letter-spacing: 3px; text-align: center; }
-    body.tui-rotate #tuiRotate { display: flex; }
-    body.tui-rotate .tui { display: none; }
-    /* a phone tipping upright, in the same molded plastic as the pads */
-    #tuiRotate .phone { width: 88px; height: 52px; border-radius: 9px;
-      border: 3px solid #6b5a3c; background: linear-gradient(160deg, #241d17, #12100c);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.6); animation: tuiTip 2.2s ease-in-out infinite; }
-    @keyframes tuiTip {
-      0%, 35% { transform: rotate(0deg); }
-      60%, 100% { transform: rotate(-90deg); }
-    }
+    body.tui-portrait #frame { padding-bottom: var(--tui-resy, 0px); }
+    body.tui-landscape #frame { padding-left: var(--tui-resx, 0px);
+      padding-right: var(--tui-resx, 0px); }
   `;
   document.head.appendChild(style);
 
@@ -177,40 +170,40 @@ window.TouchUI = (() => {
     + '<div id="tuiB" class="tuiBtn">B</div><div id="tuiA" class="tuiBtn">A</div>'
     + '<div id="tuiRock"><div id="tuiL">&lt;</div><div id="tuiR">&gt;</div></div>');
   const menu = right.querySelector('#tuiMenu');
-  el('tuiRotate', '', '<div class="phone"></div><div>TURN YOUR DEVICE UPRIGHT</div>');
 
+  let wasPortrait = null;
   function layout() {
-    const p = portrait(), r = reserve();
+    const p = portrait(), r = reserve(), i = insets();
     const b = document.body;
     b.classList.add('tui-on');
     b.classList.toggle('tui-portrait', p);
     b.classList.toggle('tui-landscape', !p);
-    // a real phone is held upright; a desktop on ?touch=1 keeps its landscape
-    const nagging = mobile && !p;
-    if (nagging && !b.classList.contains('tui-rotate')) releaseAll();
-    b.classList.toggle('tui-rotate', nagging);
-    b.style.setProperty('--tui-lift', (p ? LIFT : LIFT_L) + safeBottom() + 'px');
+    // the pads jump to the other layout under whatever thumbs are down, so a
+    // turn of the device starts from a clean slate rather than a stuck key
+    if (wasPortrait !== null && wasPortrait !== p) releaseAll();
+    wasPortrait = p;
+    b.style.setProperty('--tui-lift', (p ? LIFT : LIFT_L) + i.b + 'px');
+    b.style.setProperty('--tui-safe-l', i.l + 'px');
+    b.style.setProperty('--tui-safe-r', i.r + 'px');
     b.style.setProperty('--tui-resy', r.y + 'px');
     b.style.setProperty('--tui-resx', (r.x / 2) + 'px');
     fitCanvas();
   }
-  window.addEventListener('resize', layout);
-  window.addEventListener('orientationchange', layout);
-  // resize alone is not dependable across mobile browsers when only the
-  // orientation changed, so watch the media query that says so outright
-  if (window.matchMedia) {
-    const mq = matchMedia('(orientation: portrait)');
-    if (mq.addEventListener) mq.addEventListener('change', layout);
-    else if (mq.addListener) mq.addListener(layout);
+  // Missing a turn of the device now leaves the game visibly wrong -- a canvas
+  // sized for the other orientation, hanging off the screen -- so this does not
+  // rest on events alone. resize is the normal path, but mobile browsers vary
+  // on whether a pure rotation fires it, and orientationchange is deprecated.
+  // The poll is the backstop: it costs two integer compares and only does work
+  // on the tick where the viewport actually changed.
+  let lastW = 0, lastH = 0;
+  function relayout() {
+    if (innerWidth === lastW && innerHeight === lastH) return;
+    lastW = innerWidth; lastH = innerHeight;
+    layout();
   }
-
-  // installed as a PWA the manifest holds portrait for us; in a tab the lock
-  // only takes in fullscreen, so try once and let it fail quietly if not.
-  if (mobile && screen.orientation && screen.orientation.lock) {
-    const tryLock = () => { try { screen.orientation.lock('portrait').catch(() => {}); } catch (e) {} };
-    tryLock();
-    document.addEventListener('fullscreenchange', tryLock);
-  }
+  window.addEventListener('resize', relayout);
+  window.addEventListener('orientationchange', relayout);
+  setInterval(relayout, 250);
 
   // ---------- the 8-way walking pad ----------
   // octants from +x clockwise (screen y grows downward)
@@ -345,8 +338,7 @@ window.TouchUI = (() => {
   wireButton(right.querySelector('#tuiY'), 'Y');
   wireButton(menu, 'MENU');
 
-  // turning the phone sideways hides the pads mid-touch, and a touch on a
-  // hidden control never ends — so drop everything the moment they go away
+  // let go of every synthetic key at once, however many touches are down
   function releaseAll() {
     moveTouch = null; setMoveCodes([]); dot.style.transform = '';
     rockTouch = null;

@@ -46,11 +46,10 @@ gamepad's B does. A MENU (pause) pill sits above the buttons. All of it is
 multi-touch, so you can walk, turn and shoot at once. Append `?touch=1` to
 the URL to force the controls on a desktop, or `?touch=0` to suppress them.
 
-A handheld is held upright: the installed app asks the system for portrait,
-a plain browser tab tries the Orientation API, and if neither takes, turning
-the phone sideways puts up a rotate prompt rather than a squashed screen.
-The pads read the safe-area insets, so nothing hides under a notch or a
-home indicator.
+Hold the device whichever way you like. Portrait stacks the screen above the
+pads; landscape sets the pads either side of it and gives the game a wider
+view. It follows the device as you turn it, and the pads read the safe-area
+insets both ways, so nothing hides under a notch or a home indicator.
 
 ## Install it
 
