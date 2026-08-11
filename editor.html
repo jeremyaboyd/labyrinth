@@ -14,6 +14,7 @@
     <span id="ed-title">LABYRINTH LEVEL DESIGNER</span>
     <nav id="ed-tabs">
       <button class="tab active" data-tab="map">MAP</button>
+      <button class="tab" data-tab="quests">QUESTS</button>
       <button class="tab" data-tab="tiles">TILES</button>
       <button class="tab" data-tab="textures">TEXTURES</button>
     </nav>
@@ -60,6 +61,15 @@
         </div>
         <div class="hint">RIGHT-CLICK PICKS THE GLYPH UNDER THE CURSOR</div>
       </fieldset>
+      <fieldset id="fs-portals">
+        <legend>WAYS DOWN</legend>
+        <div id="portal-list"></div>
+        <div id="portal-add">
+          <button id="btn-add-dungeon">ADD DUNGEON</button>
+          <button id="btn-add-mine">ADD MINE</button>
+        </div>
+        <div class="hint">A SEALED WAY OPENS ONLY TO A QUEST'S KEY</div>
+      </fieldset>
       <fieldset id="fs-legend">
         <legend>GLYPHS</legend>
         <div id="glyph-list"></div>
@@ -76,6 +86,20 @@
       <canvas id="mapcanvas"></canvas>
       <div id="map-status">&nbsp;</div>
     </div>
+  </main>
+
+  <main id="panel-quests" class="panel hidden">
+    <div id="quests-bar">
+      <button id="btn-add-quest">ADD QUEST</button>
+      <span class="hint">A VILLAGER ASKS FOR A RELIC FROM A DUNGEON OR MINE. THE REWARD CAN BE THE KEY TO A SEALED WAY.</span>
+    </div>
+    <table id="quests-table">
+      <thead><tr>
+        <th>NAME</th><th>RELIC</th><th>GIVER</th><th>WHERE IT LIES</th>
+        <th>GOLD</th><th>ITEM</th><th>KEY</th><th>&nbsp;</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
   </main>
 
   <main id="panel-tiles" class="panel hidden">
@@ -138,11 +162,13 @@
 <script src="js/game/tiles.js"></script>
 <script src="js/game/slabs.js"></script>
 <script src="js/game/textures.js"></script>
+<script src="js/game/items.js"></script>
 <script src="js/game/overworld.js"></script>
 <!-- the designer -->
 <script src="js/editor/estate.js"></script>
 <script src="js/editor/ezip.js"></script>
 <script src="js/editor/emap.js"></script>
+<script src="js/editor/equests.js"></script>
 <script src="js/editor/etiles.js"></script>
 <script src="js/editor/etex.js"></script>
 <script src="js/editor/emain.js"></script>

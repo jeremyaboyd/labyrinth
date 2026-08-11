@@ -151,6 +151,12 @@ const OW_KING = [KS_X + 14, KS_Y + 13];
 
 // Everything buildOverworld needs, gathered as plain data. The stock world is
 // just the default value of this; the level designer exports a different one.
+//
+// Portals are the ways off the surface. Each is its own realm below: a
+// dungeon is a chain of floors rolled from its own seed, a mine is one level
+// with a mouth at each end. Coordinates may be left null in the stock def --
+// they resolve from the X / m / n glyphs in the art -- but the designer
+// always writes them out.
 function defaultWorldDef() {
   return {
     name: 'THE KINGSHORE',
@@ -160,6 +166,11 @@ function defaultWorldDef() {
     start: { x: OW_START.x, y: OW_START.y, a: OW_START.a },
     king: OW_KING,
     villagers: OW_VILLAGERS,
+    portals: [
+      { id: 'castle', kind: 'dungeon', name: 'THE LABYRINTH', floors: 0, x: null, y: null },
+      { id: 'deepcut', kind: 'mine', name: 'THE DEEPCUT MINE', x: null, y: null, exit: null },
+    ],
+    quests: [],
   };
 }
 
@@ -201,12 +212,34 @@ function buildOverworld() {
       else if (td && td.prop === 'lamp') props.push({ type: 'lamp', x: x + 0.5, y: y + 0.5, phase: (x * 3 + y * 5) % 10 });
     }
   }
+  // portals: explicit coordinates win; the stock def leaves them null and the
+  // X / m / n glyphs in the art fill them in
+  const portals = (def.portals || []).map(p => ({ ...p }));
+  for (const p of portals) {
+    if (p.x == null) {
+      if (p.id === 'castle' && exit) { p.x = exit.x; p.y = exit.y; }
+      if (p.id === 'deepcut' && mineA) { p.x = mineA.x; p.y = mineA.y; }
+    }
+    if (p.kind === 'mine' && !p.exit && p.id === 'deepcut' && mineB) {
+      p.exit = { x: mineB.x, y: mineB.y };
+    }
+  }
+  // drop portals that never landed anywhere; a mine needs both of its mouths
+  const livePortals = portals.filter(p => p.x != null && (p.kind !== 'mine' || p.exit));
+  const castle = livePortals.find(p => p.id === 'castle');
+  if (castle) exit = { x: castle.x, y: castle.y };
   if (!exit) throw new Error('overworld has no dungeon entrance');
+  // the old single-mine fields now follow the deepcut portal, wherever it is
+  const deepcut = livePortals.find(p => p.id === 'deepcut');
+  mineA = deepcut ? { x: deepcut.x, y: deepcut.y } : null;
+  mineB = deepcut ? { x: deepcut.exit.x, y: deepcut.exit.y } : null;
 
   const lvl = {
     w, h, map, floorMap, props,
     doors: {},
     tiles: TILE_DEFS,
+    portals: livePortals,
+    quests: (def.quests || []).slice(),
     mineA, mineB,
     start: { x: def.start.x, y: def.start.y },
     startAngle: def.start.a != null ? def.start.a : 0,
@@ -223,14 +256,16 @@ function buildOverworld() {
     outdoor: true,
   };
   layRamps(lvl, def.ramps || [], 0);
-  // roof over each mine mouth and the tile in front of it, so both ends of the
-  // Deepcut read as tunnels driven into the rock
+  // roof over every mine mouth and the tile in front of it, so each end of
+  // each mine reads as a tunnel driven into the rock
   lvl.lintels = new Uint8Array(w * h);
-  for (const mouth of [mineA, mineB]) {
-    if (mouth) props.push({ type: 'mineframe', x: mouth.x + 0.5, y: mouth.y + 0.5 });
+  const mouths = [];
+  for (const p of livePortals) {
+    if (p.kind !== 'mine') continue;
+    mouths.push({ x: p.x, y: p.y }, { x: p.exit.x, y: p.exit.y });
   }
-  for (const mouth of [mineA, mineB]) {
-    if (!mouth) continue;
+  for (const mouth of mouths) {
+    props.push({ type: 'mineframe', x: mouth.x + 0.5, y: mouth.y + 0.5 });
     for (let d = 0; d <= 1; d++) {
       for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d]]) {
         const x = mouth.x + dx, y = mouth.y + dy;

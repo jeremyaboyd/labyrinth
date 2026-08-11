@@ -34,8 +34,8 @@ const ED = {
 
 function freshDraft() {
   const d = defaultWorldDef();
-  return {
-    version: 1,
+  const draft = {
+    version: 2,
     world: {
       name: d.name,
       rows: d.rows.slice(),
@@ -44,10 +44,35 @@ function freshDraft() {
       start: { x: d.start.x, y: d.start.y, a: d.start.a },
       king: d.king ? d.king.slice() : null,
       villagers: d.villagers.map(v => v.slice()),
+      portals: d.portals.map(p => ({ ...p })),
+      quests: [],
     },
     tiles: {},
     textures: {},
   };
+  resolveDraftPortals(draft.world);
+  return draft;
+}
+
+// the stock def leaves portal coordinates to the X / m / n glyphs in the
+// art; the editor works in coordinates, so pin them down here
+function resolveDraftPortals(world) {
+  const find = (ch) => {
+    for (let y = 0; y < world.rows.length; y++) {
+      const x = world.rows[y].indexOf(ch);
+      if (x >= 0) return { x, y };
+    }
+    return null;
+  };
+  for (const p of world.portals) {
+    if (p.x == null) {
+      const spot = p.id === 'castle' ? find('X') : p.id === 'deepcut' ? find('m') : null;
+      if (spot) { p.x = spot.x; p.y = spot.y; }
+    }
+    if (p.kind === 'mine' && !p.exit && p.id === 'deepcut') {
+      p.exit = find('n');
+    }
+  }
 }
 
 function loadDraft() {
@@ -55,10 +80,45 @@ function loadDraft() {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
       const d = JSON.parse(raw);
-      if (d && d.world && d.world.rows) return d;
+      if (d && d.world && d.world.rows) {
+        // drafts saved before portals and quests existed grow them here
+        if (!d.world.portals) {
+          d.world.portals = defaultWorldDef().portals.map(p => ({ ...p }));
+          resolveDraftPortals(d.world);
+        }
+        if (!d.world.quests) d.world.quests = [];
+        return d;
+      }
     }
   } catch (err) { /* fall through to fresh */ }
   return freshDraft();
+}
+
+// ---------- portal + quest bookkeeping ----------
+function allocPortalId(kind) {
+  const used = new Set(ED.draft.world.portals.map(p => p.id));
+  for (let i = 1; i < 100; i++) {
+    const id = (kind === 'mine' ? 'mine' : 'delve') + i;
+    if (!used.has(id)) return id;
+  }
+  return null;
+}
+
+function addPortal(kind) {
+  const id = allocPortalId(kind);
+  if (!id) return null;
+  const p = kind === 'mine'
+    ? { id, kind: 'mine', name: 'THE NEW MINE', x: null, y: null, exit: null }
+    : { id, kind: 'dungeon', name: 'THE NEW DELVE', floors: 3, x: null, y: null, locked: false };
+  ED.draft.world.portals.push(p);
+  markDirty();
+  return p;
+}
+
+function allocQuestId() {
+  const used = new Set(ED.draft.world.quests.map(q => q.id));
+  for (let i = 1; i < 1000; i++) if (!used.has('q' + i)) return 'q' + i;
+  return null;
 }
 
 function saveDraft() {

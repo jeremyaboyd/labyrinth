@@ -166,6 +166,18 @@ with three panels:
   wall tile standing on a ground texture), place the player start and the
   king, toggle villagers, and lay 45° ramp flights. Right-click picks the
   glyph under the cursor; the mouse wheel zooms and middle-drag pans.
+  The WAYS DOWN panel places portals: any number of **dungeons** (each its
+  own rogue-like descent with a floor count of your choosing) and any number
+  of **mines** (place the entrance, then click where it comes out — two
+  mouths, one maze between them). A portal can be SEALED, openable only by
+  a key some quest awards.
+- **QUESTS** — a villager, a place, a prize and a promise: the giver asks
+  for a relic that lies at the bottom of a dungeon or deep in a mine, and
+  pays in gold, an item, or the key to a sealed portal. Keys are how a
+  world opens up one delve at a time: clear the small dungeon by the first
+  village, be handed the way into the mine, come out at a second village
+  with a quest of its own. The validator warns about sealed ways no quest
+  can open, portals buried in solid rock, and quests pointing at nothing.
 - **TILES** — reshape any wall tile, stock or new: its height in storeys,
   whether it is a door, glows, trades as a shop, or is really a tree/lamp
   prop. NEW WALL TILE and NEW GROUND TEXTURE mint fresh ids.
@@ -219,6 +231,11 @@ the surface world only — the floors below are always rolled from the seed.
 - The export is a ZIP written by hand in `js/editor/ezip.js` — stored
   entries, CRC-32 and a central directory are all a static host needs, and
   it keeps the zero-dependency rule intact.
+- Below the surface the world is organized into **realms**: every portal is
+  its own descent with its own seed, deepest-floor record and floor names.
+  The castle labyrinth and the Deepcut mine are simply the stock world's two
+  portals, on the same formulas as ever, so old saves regenerate the same
+  floors — a v2 save standing in the old mine wakes up in the deepcut realm.
 - All textures and sprites are generated procedurally at boot (no image
   assets); text uses a hand-built 5×7 bitmap font. The only images in the
   repo are the home-screen icons, which a browser cannot ask a canvas for.

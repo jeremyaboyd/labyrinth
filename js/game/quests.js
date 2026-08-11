@@ -37,9 +37,10 @@ function newQuestLog() {
   return { active: null, log: {}, defs: {}, seq: 0 };
 }
 
-// static story quests first, then any errand rolled during this run
+// static story quests, then the designer's own, then errands rolled this run
 function questDef(p, id) {
-  return QUESTS[id] || (p.quests && p.quests.defs && p.quests.defs[id]) || null;
+  return QUESTS[id] || DESIGNER_QUESTS[id]
+    || (p.quests && p.quests.defs && p.quests.defs[id]) || null;
 }
 
 function questEntry(p, id) { return p.quests && p.quests.log[id]; }
@@ -123,7 +124,28 @@ function questMarker(p) {
       const g = G.npcs[def.giver];
       return g ? { floor: 0, x: g.x | 0, y: g.y | 0 } : null;
     }
-    return def.item.floor === p.floor ? { floor: p.floor, x: def.item.x, y: def.item.y } : null;
+    // errand floors mean the surface or the castle descent, no other realm
+    const here = def.item.floor === 0 ? p.floor === 0
+      : p.realm === 'castle' && def.item.floor === p.floor;
+    return here ? { floor: p.floor, x: def.item.x, y: def.item.y } : null;
+  }
+  if (def.kind === 'relic') {
+    const e = questEntry(p, id);
+    if (e.carrying) {
+      if (p.floor !== 0) return null;
+      const g = G.npcs[def.giver];
+      return g ? { floor: 0, x: g.x | 0, y: g.y | 0 } : null;
+    }
+    if (p.floor === 0) {
+      // point at the way in
+      const portal = G.portals[def.portal];
+      return portal ? { floor: 0, x: portal.x, y: portal.y } : null;
+    }
+    if (p.realm === def.portal) {
+      const it = G.items.find(i => i.type === 'relic' && i.qid === id);
+      if (it) return { floor: p.floor, x: it.x | 0, y: it.y | 0 };
+    }
+    return null;
   }
   if (def.marker) return def.marker.floor === p.floor ? def.marker : null;
   if (id === 'crown') {
@@ -166,6 +188,153 @@ function kingDialogue(p) {
     };
   }
   return { name: 'THE KING', lines: ['THE CROWN IS HOME. THE REALM THANKS YOU.'] };
+}
+
+// ---------- the designer's quests: a relic in a realm, a reward for it ----------
+// Rebuilt from the world definition whenever the surface is built, so they
+// need no place in a save: only the player's log entry travels.
+let DESIGNER_QUESTS = {};
+
+function buildDesignerQuests(list) {
+  DESIGNER_QUESTS = {};
+  for (const q of list || []) {
+    if (!q || !q.id || q.giver == null || !q.portal) continue;
+    const id = 'dq_' + q.id;
+    const thing = (q.thing || 'THE LOST RELIC').toUpperCase();
+    const name = (q.name || thing).toUpperCase();
+    DESIGNER_QUESTS[id] = {
+      id, kind: 'relic',
+      name,
+      hint: 'FIND ' + thing,
+      from: 'A VILLAGER',
+      thing,
+      giver: q.giver | 0,
+      portal: q.portal,
+      reward: q.reward || {},
+      steps: [
+        'FIND ' + thing + '.',
+        'IT LIES IN THE DEPTHS. SEEK THE WAY IN.',
+        'YOU HAVE IT. CARRY IT BACK.',
+        'RETURNED. THE PROMISE WAS KEPT.',
+      ],
+    };
+  }
+}
+
+// how a reward reads when it is being promised
+function rewardText(reward) {
+  const parts = [];
+  if (reward.gold) parts.push(reward.gold + ' GOLD');
+  if (reward.item && ITEMS[reward.item]) parts.push(ITEMS[reward.item].name);
+  if (reward.key && G.portals[reward.key]) parts.push('THE KEY TO ' + G.portals[reward.key].name);
+  return parts.length ? parts.join(' AND ') : 'MY THANKS';
+}
+
+function grantQuestReward(p, def) {
+  const r = def.reward || {};
+  if (r.gold) { p.gold += r.gold; SFX.pickupGold(); }
+  if (r.item && ITEMS[r.item]) {
+    if (invRoomFor(p.inv, r.item, 1)) {
+      invAdd(p.inv, r.item, 1);
+      addMsg('RECEIVED ' + ITEMS[r.item].name);
+    } else {
+      // no room: it waits on the ground at your feet, like any drop
+      G.items.push({ type: 'item', item: r.item, x: p.x, y: p.y, bob: 0 });
+      addMsg('YOUR PACK IS FULL - IT LIES AT YOUR FEET');
+    }
+  }
+  if (r.key && G.portals[r.key]) {
+    if (!p.portalKeys.includes(r.key)) p.portalKeys.push(r.key);
+    addMsg('THE WAY INTO ' + G.portals[r.key].name + ' IS OPEN');
+    SFX.unlock();
+  }
+}
+
+// where a relic lies: the far end of a finite dungeon's last floor, or --
+// in a mine, whose far end is just the other mouth -- the open cell farthest
+// from both mouths, so the delve cuts into the dark either way
+function relicSpotFor(lvl) {
+  if (!lvl.isMine) return { x: lvl.exit.x, y: lvl.exit.y };
+  let best = null, bestScore = -1;
+  for (let y = 1; y < lvl.h - 1; y++) {
+    for (let x = 1; x < lvl.w - 1; x++) {
+      if (lvl.map[y * lvl.w + x] !== 0) continue;
+      const s = Math.min(
+        Math.abs(x - lvl.start.x) + Math.abs(y - lvl.start.y),
+        Math.abs(x - lvl.exit.x) + Math.abs(y - lvl.exit.y));
+      if (s > bestScore) { bestScore = s; best = { x, y }; }
+    }
+  }
+  return best || { x: lvl.exit.x, y: lvl.exit.y };
+}
+
+// called by loadFloor: lay the relic out if a held quest points at this
+// floor of this realm and it is not already carried home
+function layQuestRelic(lvl, realm, n) {
+  const p = G.player;
+  if (!realm || !p || !p.quests) return;
+  const portal = G.portals[realm];
+  if (!portal) return;
+  const relicFloor = portal.kind === 'mine' ? 1 : (portal.floors > 0 ? portal.floors : 0);
+  if (n !== relicFloor) return;
+  for (const id in DESIGNER_QUESTS) {
+    const def = DESIGNER_QUESTS[id];
+    if (def.portal !== realm) continue;
+    const e = questEntry(p, id);
+    if (!e || e.done || e.carrying) continue;
+    const spot = relicSpotFor(lvl);
+    G.items.push({ type: 'relic', qid: id, x: spot.x + 0.5, y: spot.y + 0.5, bob: Math.random() * 10 });
+  }
+}
+
+// picking the relic up off the ground
+function relicPickup(p, qid) {
+  const def = questDef(p, qid);
+  const e = questEntry(p, qid);
+  if (!def || !e || e.carrying) return;
+  e.carrying = true;
+  questReveal(p, qid, 3);
+  addMsg('YOU FOUND ' + def.thing);
+  SFX.quest();
+}
+
+// the giver's designer quest that still wants something of the player
+function designerQuestFromGiver(p, v) {
+  for (const id in DESIGNER_QUESTS) {
+    if (DESIGNER_QUESTS[id].giver === v.line && !questDone(p, id)) return id;
+  }
+  return null;
+}
+
+// what the giver says: the offer, the reminder, or the handover
+function designerQuestTalk(p, v, qid) {
+  const def = DESIGNER_QUESTS[qid];
+  const name = villagerName(v);
+  const where = G.portals[def.portal] ? G.portals[def.portal].name : 'THE DEPTHS';
+  if (!questHeld(p, qid)) {
+    return {
+      name,
+      lines: [
+        'I NEED ' + def.thing + '.',
+        'IT LIES IN ' + where + '.',
+        'BRING IT BACK AND ' + rewardText(def.reward) + ' IS YOURS.',
+      ],
+      onEnd: () => {
+        p.quests.log[qid] = { done: false, revealed: 2, carrying: false };
+        if (!p.quests.active) p.quests.active = qid;
+        addMsg('NEW QUEST: ' + def.name);
+        SFX.quest();
+      },
+    };
+  }
+  if (questEntry(p, qid).carrying) {
+    return {
+      name,
+      lines: ['YOU HAVE IT! ' + def.thing + '!', 'AS PROMISED: ' + rewardText(def.reward) + '.'],
+      onEnd: () => { grantQuestReward(p, def); questComplete(p, qid); },
+    };
+  }
+  return { name, lines: ['ANY SIGN OF ' + def.thing + '?', 'IT LIES IN ' + where + '.'] };
 }
 
 const VILLAGER_LINES = [
@@ -255,7 +424,7 @@ function makeFetchQuest(p, v) {
   // the stairwell holds you to.
   const floor = Math.random() < 0.5
     ? 0
-    : 1 + ((Math.random() * clamp(G.deepest + 1, 1, CROWN_FLOOR)) | 0);
+    : 1 + ((Math.random() * clamp(realmState('castle').deepest + 1, 1, CROWN_FLOOR)) | 0);
   const spot = fetchSpot(floor);
   const reward = 40 + floor * 30 + ((Math.random() * 20) | 0);
   const name = villagerName(v);
@@ -297,6 +466,10 @@ function fetchPickup(p, qid) {
 function villagerTalk(v) {
   const p = G.player;
   const name = villagerName(v);
+  // a villager the designer gave a quest speaks of nothing else until it
+  // is finished
+  const dqid = designerQuestFromGiver(p, v);
+  if (dqid) return designerQuestTalk(p, v, dqid);
   const qid = fetchFromGiver(p, v);
   if (qid) {
     const def = questDef(p, qid);

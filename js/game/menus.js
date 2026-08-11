@@ -155,22 +155,31 @@ function openJournal() {
 // down through to get here, and every floor down to the deepest you have
 // reached is ground you have already opened up. The one step past your deepest
 // point is new, so it is offered only from the deepest floor itself.
+// the realm whose stairwell this is: the one we are in, or -- standing on
+// the surface at the castle's shaft -- the castle's
+function stairRealm() { return G.player.realm || 'castle'; }
+
 function stairRow(n, untrodden) {
+  const rs = realmState(stairRealm());
   return {
     floor: n,
     label: n === 0 ? 'THE SURFACE' : 'FLOOR ' + n,
-    name: untrodden ? 'UNTRODDEN' : (G.floorNames[n] || ''),
+    name: n === 0 ? G.surfaceName : untrodden ? 'UNTRODDEN' : (rs.names[n] || ''),
   };
 }
 
 function stairChoices(dir) {
   const out = [];
   const here = G.player.floor;
+  const rs = realmState(stairRealm());
+  const portal = G.portals[stairRealm()];
+  // a finite dungeon's floors run out; the castle's never do
+  const cap = portal && portal.floors > 0 ? portal.floors : Infinity;
   if (dir === 'up') {
     for (let n = here - 1; n >= 0; n--) out.push(stairRow(n, false));
   } else {
-    const last = here === G.deepest ? G.deepest + 1 : G.deepest;
-    for (let n = here + 1; n <= last; n++) out.push(stairRow(n, n > G.deepest));
+    const last = Math.min(here === rs.deepest ? rs.deepest + 1 : rs.deepest, cap);
+    for (let n = here + 1; n <= last; n++) out.push(stairRow(n, n > rs.deepest));
   }
   return out;
 }
@@ -192,8 +201,15 @@ function confirmStairs() {
   G.state = 'transition';
   G.transT = 0;
   // you step off at the far end of the flight: climbing puts you on that
-  // floor's stair down, descending puts you on its stair up
-  changeFloor(c.floor, G.flightDir === 'up' ? 'exit' : 'start');
+  // floor's stair down, descending puts you on its stair up. A climb all the
+  // way out lands at this realm's own shaft on the surface.
+  const realm = stairRealm();
+  if (c.floor === 0) {
+    const portal = G.portals[realm];
+    changeFloor(0, portal ? { x: portal.x, y: portal.y } : 'exit');
+  } else {
+    changeFloor(c.floor, G.flightDir === 'up' ? 'exit' : 'start', realm);
+  }
 }
 
 function drawStairs() {

@@ -27,14 +27,16 @@ const SaveSys = (() => {
   function snapshot() {
     const p = G.player;
     return {
-      v: 2,
+      v: 3,
       t: Date.now(),
       baseSeed: G.baseSeed,
       floor: p.floor,
+      realm: G.realm,
+      realms: G.realms,
+      surfaceWalked: G.surfaceWalked,
+      portalKeys: p.portalKeys,
       floorName: G.level.name,
       crownTaken: G.crownTaken,
-      deepest: G.deepest,
-      floorNames: G.floorNames,
       kills: G.stats.kills,
       clock: Math.round(G.clock * 100) / 100,
       player: {
@@ -68,7 +70,7 @@ const SaveSys = (() => {
       const raw = localStorage.getItem(key(slot));
       if (!raw) return null;
       const d = JSON.parse(raw);
-      if ((d.v !== 1 && d.v !== 2) || !d.player || !Number.isFinite(d.baseSeed)) return null;
+      if ((d.v !== 1 && d.v !== 2 && d.v !== 3) || !d.player || !Number.isFinite(d.baseSeed)) return null;
       return d;
     } catch (err) {
       return null;
@@ -95,16 +97,31 @@ const SaveSys = (() => {
     G.crownTaken = !!d.crownTaken;
     G.stats.kills = d.kills | 0;
     G.clock = Number.isFinite(d.clock) ? d.clock : CLOCK_START;
-    // saves older than the climb menu never recorded this; you cannot be on a
-    // floor without having walked down through every floor above it
-    G.deepest = Number.isFinite(d.deepest) ? d.deepest : d.floor;
-    G.floorNames = d.floorNames || {};
-    loadFloor(d.floor); // deterministic layout; runtime state overwritten below
+    // the portal index and designer quests come from the surface world, and
+    // a save may land anywhere below it
+    G.portals = {};
+    ensureWorldIndex();
+    let floor = d.floor, realm = d.realm || null;
+    if (d.v >= 3) {
+      G.realms = d.realms || {};
+      G.surfaceWalked = !!d.surfaceWalked;
+      G.player.portalKeys = (d.portalKeys || []).slice();
+    } else {
+      // older saves knew one descent and one mine at floor -1. You cannot be
+      // on a floor without having walked every floor above it.
+      realm = d.floor === -1 ? 'deepcut' : d.floor > 0 ? 'castle' : null;
+      if (d.floor === -1) floor = 1;
+      G.realms = {};
+      const deepest = Number.isFinite(d.deepest) ? Math.max(d.deepest, 0) : Math.max(d.floor, 0);
+      G.realms.castle = { deepest, names: d.floorNames || {} };
+      G.surfaceWalked = true;
+    }
+    loadFloor(floor, null, realm); // deterministic layout; runtime state overwritten below
     const p = G.player;
     p.x = d.player.x; p.y = d.player.y; p.a = d.player.a;
     p.hp = d.player.hp; p.maxHp = d.player.maxHp;
     p.gold = d.player.gold; p.keys = d.player.keys;
-    p.floor = d.floor;
+    p.floor = floor;
 
     // v1 predates the pack; those runs keep the starting kit newPlayer() gave them
     if (d.v >= 2) {
@@ -141,10 +158,10 @@ const SaveSys = (() => {
     G.items = d.items.map(([type, x, y, item]) => {
       // v1 stored bare 'potion' pickups; they are crimson draughts now
       if (type === 'potion') return { type: 'item', item: 'potionRed', x, y, bob: Math.random() * 10 };
-      if (type === 'quest') return { type, qid: item, x, y, bob: Math.random() * 10 };
+      if (type === 'quest' || type === 'relic') return { type, qid: item, x, y, bob: Math.random() * 10 };
       return { type, item: item || undefined, x, y, bob: Math.random() * 10 };
     }).filter(it => (it.type !== 'item' || ITEMS[it.item])
-      && (it.type !== 'quest' || !!questDef(p, it.qid)));
+      && ((it.type !== 'quest' && it.type !== 'relic') || !!questDef(p, it.qid)));
     G.projectiles = [];
 
     for (const [idx, counts] of (d.shops || [])) {

@@ -85,6 +85,28 @@ fieldset label { display: block; margin: 4px 0; }
 #glyph-add input { width: 30px; text-align: center; }
 #glyph-add select { max-width: 100px; }
 
+/* ---- portals ---- */
+#portal-list { display: flex; flex-direction: column; gap: 6px; }
+.portal-row { border: 1px solid var(--line); padding: 4px; }
+.portal-head { display: flex; gap: 6px; align-items: center; }
+.portal-head input { flex: 1; min-width: 0; }
+.portal-kind { color: var(--cyan); font-size: 11px; flex: none; }
+.portal-opts { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.portal-opts input[type=number] { width: 44px; }
+#portal-add { display: flex; gap: 4px; margin-top: 8px; }
+
+/* ---- quests panel ---- */
+#panel-quests { flex-direction: column; padding: 10px; }
+#quests-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+#quests-table { border-collapse: collapse; }
+#quests-table th, #quests-table td {
+  border: 1px solid var(--line); padding: 4px 6px; text-align: left;
+}
+#quests-table th { color: var(--cyan); }
+#quests-table input[type=text] { width: 130px; }
+#quests-table input[type=number] { width: 60px; }
+#quests-table select { max-width: 160px; }
+
 /* ---- tiles panel ---- */
 #panel-tiles { flex-direction: column; padding: 10px; }
 #tiles-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }

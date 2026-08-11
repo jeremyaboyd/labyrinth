@@ -97,7 +97,8 @@ const PACKAGE_FILES = [
   // the designer travels with the game, so an export can be edited again
   'editor.html', 'editor.css',
   'js/editor/estate.js', 'js/editor/ezip.js', 'js/editor/emap.js',
-  'js/editor/etiles.js', 'js/editor/etex.js', 'js/editor/emain.js',
+  'js/editor/equests.js', 'js/editor/etiles.js', 'js/editor/etex.js',
+  'js/editor/emain.js',
 ];
 
 async function exportZip() {

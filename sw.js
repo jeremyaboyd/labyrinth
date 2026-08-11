@@ -48,6 +48,7 @@ const SHELL = [
   'js/editor/estate.js',
   'js/editor/ezip.js',
   'js/editor/emap.js',
+  'js/editor/equests.js',
   'js/editor/etiles.js',
   'js/editor/etex.js',
   'js/editor/emain.js',

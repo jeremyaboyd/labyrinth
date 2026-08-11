@@ -7,7 +7,8 @@ function newPlayer() {
     z: 0, vz: 0,      // feet height, and the fall in progress
     hp: 100, maxHp: 100,
     mp: START_KIT.mp, maxMp: START_KIT.mp,
-    gold: 0, keys: 0, floor: 1,
+    gold: 0, keys: 0, floor: 1, realm: 'castle',
+    portalKeys: [], // portal ids whose seals this player has been granted past
     attackT: 0, attackHitDone: false, atkCd: 0,
     bobPhase: 0, moving: false, stepAcc: 0,
     inv: newInventory(),
@@ -122,8 +123,8 @@ function npcInFront() {
 // lands you squarely on it, and that would drop you straight through again.
 function stairsUnderFoot() {
   const p = G.player, lvl = G.level;
-  if (lvl.floorNum === MINE_FLOOR) return null;  // its ends are mine mouths
-  if ((!lvl.hasCrown || G.crownTaken)
+  if (lvl.isMine || lvl.floorNum === 0) return null; // mouths and portals, not stairs
+  if ((!lvl.hasCrown || G.crownTaken) && !lvl.noDeeper
       && Math.hypot(lvl.exit.x + 0.5 - p.x, lvl.exit.y + 0.5 - p.y) < 0.6) return 'down';
   if (lvl.floorNum > 0
       && Math.hypot(lvl.start.x + 0.5 - p.x, lvl.start.y + 0.5 - p.y) < 0.6) return 'up';
@@ -133,18 +134,36 @@ function stairsUnderFoot() {
 // either way, the stairwell asks how far you mean to go
 function takeStairs(dir) { openStairs(dir); }
 
-// The mine has a mouth at each end and no floors to choose between, so it is
-// the one crossing that just happens when you press E.
-function mineMouthUnderFoot() {
-  const p = G.player, lvl = G.level;
-  const on = (spot) => spot && Math.hypot(spot.x + 0.5 - p.x, spot.y + 0.5 - p.y) < 0.7;
-  if (lvl.floorNum === 0) {
-    if (on(lvl.mineA)) return { to: MINE_FLOOR, at: 'start', text: 'ENTER THE MINE' };
-    if (on(lvl.mineB)) return { to: MINE_FLOOR, at: 'exit', text: 'ENTER THE MINE' };
-  } else if (lvl.floorNum === MINE_FLOOR) {
-    if (on(lvl.start)) return { to: 0, at: 'mineA', text: 'OUT TO KINGSHORE' };
-    if (on(lvl.exit)) return { to: 0, at: 'mineB', text: 'OUT TO THE VALE' };
+function onSpot(spot, reach) {
+  const p = G.player;
+  return spot && Math.hypot(spot.x + 0.5 - p.x, spot.y + 0.5 - p.y) < (reach || 0.7);
+}
+
+// The portal the player is standing on, out on the surface. A mine is
+// entered from either mouth; a dungeon from its one shaft.
+function portalUnderFoot() {
+  const lvl = G.level;
+  if (lvl.floorNum !== 0 || !lvl.portals) return null;
+  for (const portal of lvl.portals) {
+    if (onSpot(portal)) return { portal, side: 'enter' };
+    if (portal.kind === 'mine' && onSpot(portal.exit)) return { portal, side: 'exit' };
   }
+  return null;
+}
+
+// a locked portal opens only to a key some quest has granted
+function portalSealed(portal) {
+  return !!portal.locked && !G.player.portalKeys.includes(portal.id);
+}
+
+// Inside a mine, either mouth carries you back to its spot on the surface.
+function mineMouthUnderFoot() {
+  const lvl = G.level;
+  if (!lvl.isMine) return null;
+  const portal = G.portals[G.realm];
+  if (!portal) return null;
+  if (onSpot(lvl.start)) return { spot: { x: portal.x, y: portal.y }, text: 'LEAVE THE MINE' };
+  if (onSpot(lvl.exit)) return { spot: { x: portal.exit.x, y: portal.exit.y }, text: 'LEAVE THE MINE' };
   return null;
 }
 
@@ -154,12 +173,33 @@ function useFront() {
   const p = G.player;
   const lvl = G.level;
 
+  // standing at a way off the surface
+  const at = portalUnderFoot();
+  if (at) {
+    if (portalSealed(at.portal)) {
+      addMsg('SEALED. SOMEONE HOLDS THE KEY.');
+      SFX.doorLocked();
+      return;
+    }
+    if (at.portal.id === 'castle') {
+      // the castle's descent keeps its stairwell and its list of floors
+      takeStairs('down');
+      return;
+    }
+    SFX.stairs();
+    G.state = 'transition';
+    G.transT = 0;
+    changeFloor(1, at.side === 'exit' ? 'exit' : 'start', at.portal.id);
+    return;
+  }
+
+  // standing at a mine mouth, on the way back out
   const mine = mineMouthUnderFoot();
   if (mine) {
     SFX.stairs();
     G.state = 'transition';
     G.transT = 0;
-    changeFloor(mine.to, mine.at);
+    changeFloor(0, mine.spot);
     return;
   }
 
@@ -303,6 +343,8 @@ function updatePlay(dt) {
         SFX.pickupKey();
       } else if (it.type === 'quest') {
         fetchPickup(p, it.qid); // somebody's keepsake, carried, not packed
+      } else if (it.type === 'relic') {
+        relicPickup(p, it.qid); // a designer quest's prize, carried the same way
       } else if (it.type === 'crown') {
         G.crownTaken = true;
         markStairways(G.level); // the way deeper opens in the floor

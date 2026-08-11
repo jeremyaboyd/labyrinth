@@ -5,10 +5,11 @@ function showTab(name) {
   for (const b of document.querySelectorAll('#ed-tabs .tab')) {
     b.classList.toggle('active', b.dataset.tab === name);
   }
-  for (const p of ['map', 'tiles', 'textures']) {
+  for (const p of ['map', 'quests', 'tiles', 'textures']) {
     document.getElementById('panel-' + p).classList.toggle('hidden', p !== name);
   }
   if (name === 'map') { sizeMapCanvas(); renderMap(); }
+  if (name === 'quests') refreshQuestPanel();
   if (name === 'tiles') refreshTilesPanel();
   if (name === 'textures') refreshTexGrid();
 }
@@ -37,6 +38,7 @@ function initEditor() {
   };
 
   initMap();
+  initQuests();
   initTiles();
   initTex();
   showTab('map');

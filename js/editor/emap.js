@@ -12,6 +12,7 @@ const EMap = {
   panning: false,
   panFrom: null,
   cursor: null,      // {x, y} under the mouse, or null
+  placing: null,     // { portal, stage: 'enter' | 'exit' } while placing one
 };
 
 const RAMP_ARROWS = { 1: '▶', 2: '◀', 3: '▼', 4: '▲' };
@@ -115,6 +116,13 @@ function renderMap() {
     for (const [x, y] of world.villagers) {
       if (x >= x0 && x < x1 && y >= y0 && y < y1) label(x, y, 'V', '#48c8c8');
     }
+    for (const portal of world.portals) {
+      if (portal.x != null) {
+        label(portal.x, portal.y, portal.kind === 'mine' ? 'M' : 'D',
+          portal.locked ? '#c05040' : '#e0a040');
+      }
+      if (portal.kind === 'mine' && portal.exit) label(portal.exit.x, portal.exit.y, 'M', '#80b0e0');
+    }
     if (world.king) label(world.king[0], world.king[1], 'K', '#e8c838');
     label(world.start.x, world.start.y, 'S', '#68e068');
   }
@@ -152,6 +160,27 @@ function floodFill(x, y, ch) {
 function applyTool(cell, rightClick) {
   const world = ED.draft.world;
   const { x, y } = cell;
+  // placing a portal overrides whatever tool is up; right-click abandons it
+  if (EMap.placing) {
+    if (rightClick) { EMap.placing = null; setPlacingStatus(); return; }
+    const pl = EMap.placing;
+    if (pl.stage === 'enter') {
+      pl.portal.x = x; pl.portal.y = y;
+      if (pl.portal.kind === 'mine') {
+        pl.stage = 'exit';
+      } else {
+        EMap.placing = null;
+      }
+    } else {
+      pl.portal.exit = { x, y };
+      EMap.placing = null;
+    }
+    markDirty();
+    setPlacingStatus();
+    refreshPortalUI();
+    validateWorld();
+    return;
+  }
   if (rightClick) {
     if (EMap.tool === 'ramp') {
       world.ramps = world.ramps.filter(f => {
@@ -217,13 +246,122 @@ function resizeWorld(nw, nh) {
   validateWorld();
 }
 
+// ---------- portals ----------
+function setPlacingStatus() {
+  const st = document.getElementById('map-status');
+  if (!EMap.placing) return;
+  const pl = EMap.placing;
+  st.textContent = pl.stage === 'enter'
+    ? 'CLICK THE MAP TO PLACE ' + pl.portal.name + (pl.portal.kind === 'mine' ? "'S ENTRANCE" : '')
+    : 'NOW CLICK WHERE ' + pl.portal.name + ' COMES OUT';
+}
+
+function beginPlacePortal(portal, stage) {
+  EMap.placing = { portal, stage: stage || 'enter' };
+  setPlacingStatus();
+}
+
+function refreshPortalUI() {
+  const list = document.getElementById('portal-list');
+  list.textContent = '';
+  const world = ED.draft.world;
+  for (const portal of world.portals) {
+    const row = document.createElement('div');
+    row.className = 'portal-row';
+
+    const head = document.createElement('div');
+    head.className = 'portal-head';
+    const kind = document.createElement('span');
+    kind.className = 'portal-kind';
+    kind.textContent = portal.kind === 'mine' ? 'MINE' : 'DELVE';
+    const name = document.createElement('input');
+    name.value = portal.name;
+    name.oninput = () => {
+      portal.name = name.value.toUpperCase() || 'THE NAMELESS';
+      markDirty();
+      refreshQuestPanel();
+    };
+    head.append(kind, name);
+    row.append(head);
+
+    const opts = document.createElement('div');
+    opts.className = 'portal-opts';
+    if (portal.kind === 'dungeon' && portal.id !== 'castle') {
+      const fl = document.createElement('input');
+      fl.type = 'number'; fl.min = 1; fl.max = 8; fl.value = portal.floors || 1;
+      fl.title = 'FLOORS';
+      fl.onchange = () => { portal.floors = clamp(fl.value | 0 || 1, 1, 8); markDirty(); };
+      const flLbl = document.createElement('span');
+      flLbl.textContent = 'FLOORS';
+      opts.append(flLbl, fl);
+    }
+    if (portal.id !== 'castle') {
+      const lock = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = !!portal.locked;
+      cb.onchange = () => { portal.locked = cb.checked; markDirty(); renderMap(); validateWorld(); };
+      lock.append(cb, document.createTextNode(' SEALED'));
+      opts.append(lock);
+    }
+    const place = document.createElement('button');
+    place.textContent = portal.x == null ? 'PLACE' : 'MOVE';
+    place.onclick = () => beginPlacePortal(portal, 'enter');
+    opts.append(place);
+    if (portal.kind === 'mine') {
+      const exitB = document.createElement('button');
+      exitB.textContent = portal.exit ? 'MOVE EXIT' : 'EXIT';
+      exitB.onclick = () => beginPlacePortal(portal, 'exit');
+      opts.append(exitB);
+    }
+    if (portal.id !== 'castle') {
+      const del = document.createElement('button');
+      del.className = 'danger';
+      del.textContent = 'DEL';
+      del.onclick = () => {
+        world.portals = world.portals.filter(o => o !== portal);
+        // quests pointing at it lose their target; the panel shows the hole
+        markDirty();
+        refreshPortalUI();
+        refreshQuestPanel();
+        renderMap();
+        validateWorld();
+      };
+      opts.append(del);
+    }
+    row.append(opts);
+    list.append(row);
+  }
+}
+
 // ---------- validation ----------
 function validateWorld() {
   const world = ED.draft.world;
   const warns = [];
-  let hasExit = false;
-  for (const row of world.rows) if (row.indexOf('X') >= 0) { hasExit = true; break; }
-  if (!hasExit) warns.push('NO X GLYPH: THE DUNGEON CANNOT BE ENTERED');
+  const castle = world.portals.find(p => p.id === 'castle');
+  if (!castle || castle.x == null) warns.push('THE CASTLE DUNGEON HAS NO PLACE');
+  // a portal buried in a solid tile can never be stood on, let alone entered
+  const buried = (x, y) => {
+    if (x == null || y < 0 || y >= world.rows.length || x >= world.rows[0].length) return true;
+    const entry = world.legend[world.rows[y][x]];
+    if (!entry) return true;
+    const def = entry[0] ? TILE_DEFS[entry[0]] : null;
+    return !!(entry[0] && (!def || !def.noWall));
+  };
+  for (const portal of world.portals) {
+    if (portal.x == null) warns.push(portal.name + ' IS NOT PLACED');
+    else if (buried(portal.x, portal.y)) warns.push(portal.name + ' IS INSIDE A SOLID TILE');
+    if (portal.kind === 'mine') {
+      if (portal.x != null && !portal.exit) warns.push(portal.name + ' HAS NO EXIT');
+      else if (portal.exit && buried(portal.exit.x, portal.exit.y)) warns.push(portal.name + "'S EXIT IS INSIDE A SOLID TILE");
+    }
+    if (portal.locked && !world.quests.some(q => q.reward && q.reward.key === portal.id)) {
+      warns.push(portal.name + ' IS SEALED AND NO QUEST GIVES ITS KEY');
+    }
+  }
+  for (const q of world.quests) {
+    if (!world.portals.some(p => p.id === q.portal)) warns.push('QUEST ' + (q.name || q.id) + ' POINTS AT NOTHING');
+    if (!(q.giver >= 0 && q.giver < world.villagers.length)) warns.push('QUEST ' + (q.name || q.id) + ' HAS NO GIVER');
+  }
   const sEntry = world.legend[world.rows[world.start.y][world.start.x]];
   const sDef = sEntry && sEntry[0] ? TILE_DEFS[sEntry[0]] : null;
   if (sEntry && sEntry[0] && (!sDef || !sDef.noWall)) warns.push('START IS INSIDE A SOLID TILE');
@@ -349,6 +487,14 @@ function initMap() {
     ED.draft.world.start.a = parseFloat(e.target.value);
     markDirty();
   };
+  document.getElementById('btn-add-dungeon').onclick = () => {
+    const p = addPortal('dungeon');
+    if (p) { refreshPortalUI(); refreshQuestPanel(); beginPlacePortal(p, 'enter'); }
+  };
+  document.getElementById('btn-add-mine').onclick = () => {
+    const p = addPortal('mine');
+    if (p) { refreshPortalUI(); refreshQuestPanel(); beginPlacePortal(p, 'enter'); }
+  };
 
   c.addEventListener('contextmenu', (e) => e.preventDefault());
   c.addEventListener('mousedown', (e) => {
@@ -374,11 +520,19 @@ function initMap() {
     }
     const cell = cellAtScreen(e);
     EMap.cursor = cell;
-    if (cell) {
+    if (cell && !EMap.placing) {
+      const world = ED.draft.world;
       const ch = worldRows()[cell.y][cell.x];
-      document.getElementById('map-status').innerHTML = '';
       const st = document.getElementById('map-status');
-      st.textContent = cell.x + ',' + cell.y + '  "' + ch + '" ' + glyphLabel(ch);
+      let extra = '';
+      for (const portal of world.portals) {
+        if (portal.x === cell.x && portal.y === cell.y) extra = '  [' + portal.name + ']';
+        if (portal.kind === 'mine' && portal.exit
+            && portal.exit.x === cell.x && portal.exit.y === cell.y) extra = '  [' + portal.name + ' EXIT]';
+      }
+      const vi = world.villagers.findIndex(v => v[0] === cell.x && v[1] === cell.y);
+      if (vi >= 0) extra += '  [VILLAGER ' + vi + ']';
+      st.textContent = cell.x + ',' + cell.y + '  "' + ch + '" ' + glyphLabel(ch) + extra;
       st.classList.add('raw');
     }
     if (EMap.painting && cell && (EMap.tool === 'draw')) applyTool(cell, false);
@@ -400,6 +554,7 @@ function initMap() {
 
   syncWorldInputs();
   refreshGlyphUI();
+  refreshPortalUI();
   sizeMapCanvas();
   fitMapView();
   renderMap();
