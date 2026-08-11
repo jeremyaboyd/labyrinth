@@ -22,6 +22,12 @@ function tileHeight(id) {
   return h != null ? h : 1;
 }
 
+// Which way a ramp tile climbs, and how far. A ramp rises one tile across one
+// tile of ground, so its face is at 45 degrees, and it is the only thing in
+// the world you can walk up to reach the level above.
+const RAMP_DIR = { E: 1, W: 2, S: 3, N: 4 };
+const TILE_RAMP = {};   // tile id -> { dir, lo, hi }
+
 // A cell you can stand in: ground underfoot, and a ceiling overhead if this
 // level has one. Outdoors there is no ceiling slab, which is what lets the sky
 // show through.
@@ -44,6 +50,18 @@ function buildSlabs(lvl, opts) {
       const c = lvl.map[i];
       const ground = (floorMap && floorMap[i]) || floorTex;
       const def = c ? lvl.tiles[c] : null;
+
+      // a ramp: ground that climbs, so the level above is reachable on foot
+      const rp = c ? TILE_RAMP[c] : null;
+      if (rp) {
+        const cell = [{
+          z0: Z_DEEP, z1: rp.lo, side: c, top: c, bot: 0,
+          ramp: rp.dir, rampHi: rp.hi,
+        }];
+        if (ceilTex) cell.push({ z0: Z_CEIL, z1: Z_HIGH, side: 0, top: 0, bot: ceilTex });
+        slabs[i] = cell;
+        continue;
+      }
 
       // empty ground, or something solid to walk into that the ray sees past
       // anyway: trees and lamp posts are billboards, the sea is drawn flat

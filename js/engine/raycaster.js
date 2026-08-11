@@ -52,6 +52,21 @@ function fogLight(d, flicker, ambient, fogK) {
   return Math.floor(l * 13) / 13;
 }
 
+// Height of a sloped slab's top at a world point inside cell (cx, cy). A ramp
+// climbs one full tile across one tile of ground, which is the 45 degrees the
+// world is built from. dir: 1 rises toward +x, 2 toward -x, 3 toward +y,
+// 4 toward -y.
+function rampTop(sl, cx, cy, wx, wy) {
+  const k = sl.rampHi - sl.z1;
+  let t;
+  if (sl.ramp === 1) t = wx - cx;
+  else if (sl.ramp === 2) t = cx + 1 - wx;
+  else if (sl.ramp === 3) t = wy - cy;
+  else t = cy + 1 - wy;
+  if (t < 0) t = 0; else if (t > 1) t = 1;
+  return sl.z1 + t * k;
+}
+
 function shadePix(c, l) {
   const r = ((c & 255) * l) | 0;
   const g = (((c >> 8) & 255) * l * 0.97) | 0;
@@ -97,9 +112,37 @@ function renderView(view, lvl, cam, billboards, opts) {
       const rowOff = y * W, texOff = v * sw;
       for (let x = 0; x < W; x++) buf[rowOff + x] = sdata[texOff + skyU[x]];
     }
+    // Ground running to the horizon, under everything. The world is finite and
+    // the horizon is not, so there is always a band of rows whose ground lies
+    // past the last cell -- and once you are up on a cliff looking out, that
+    // band is most of the view. Slabs paint over this; what is left is the
+    // distance, fading into fog the way it always did.
+    const flat = textures[opts.floorTex];
+    const fdata = flat ? flat.data : null;
+    const rd0x = dirX - planeX, rd0y = dirY - planeY;
+    const rd1x = dirX + planeX, rd1y = dirY + planeY;
     for (let y = horizon < 0 ? 0 : horizon; y < VIEW_H; y++) {
       const rowOff = y * W;
-      for (let x = 0; x < W; x++) buf[rowOff + x] = 0xFF000000;
+      const p = y - horizon;
+      if (!fdata || p <= 0) {
+        for (let x = 0; x < W; x++) buf[rowOff + x] = 0xFF000000;
+        continue;
+      }
+      const rowDist = camZ * VIEW_H / p;
+      const light = fogLight(rowDist, flicker, ambient, fogK);
+      if (light <= 0.02) {
+        for (let x = 0; x < W; x++) buf[rowOff + x] = 0xFF000000;
+        continue;
+      }
+      const stepX = rowDist * (rd1x - rd0x) / W;
+      const stepY = rowDist * (rd1y - rd0y) / W;
+      let fx = camX + rowDist * rd0x, fy = camY + rowDist * rd0y;
+      for (let x = 0; x < W; x++) {
+        const tx = ((fx - Math.floor(fx)) * TS) | 0;
+        const ty = ((fy - Math.floor(fy)) * TS) | 0;
+        buf[rowOff + x] = shadePix(fdata[ty * TS + tx], light);
+        fx += stepX; fy += stepY;
+      }
     }
   } else {
     buf.fill(0xFF000000);
@@ -194,7 +237,13 @@ function renderView(view, lvl, cam, billboards, opts) {
 
           // --- the vertical face where the ray entered ---
           if (!first && sl.side) {
-            const yTop = horizon + (camZ - sl.z1) * invA;
+            // on a ramp the face is only as tall as the slope is at the point
+            // the ray crossed in, which is what makes the low end of a ramp
+            // meet the ground instead of standing on a step
+            const zTop = sl.ramp
+              ? rampTop(sl, mapX, mapY, camX + dA * rayX, camY + dA * rayY)
+              : sl.z1;
+            const yTop = horizon + (camZ - zTop) * invA;
             const yBot = horizon + (camZ - sl.z0) * invA;
             let y0 = Math.floor(yTop), y1 = Math.ceil(yBot);
             if (y0 < 0) y0 = 0; if (y1 > VIEW_H) y1 = VIEW_H;
@@ -212,7 +261,7 @@ function renderView(view, lvl, cam, billboards, opts) {
                 for (let y = a; y < b; y++) {
                   // world height of this pixel, so tall walls tile the texture
                   const z = camZ - (y - horizon) / invA;
-                  let v = (sl.z1 - z) % 1;
+                  let v = (zTop - z) % 1;
                   if (v < 0) v += 1;
                   const o = y * W + x;
                   buf[o] = shadePix(tex[((v * TS) | 0) * TS + u], lt);
@@ -229,25 +278,52 @@ function renderView(view, lvl, cam, billboards, opts) {
           const sl = cell[s];
           if (sl.door && doorPassed) continue;
           for (let f = 0; f < 2; f++) {
-            const zw = f === 0 ? sl.z1 : sl.z0;
             const texId = f === 0 ? sl.top : sl.bot;
             if (!texId) continue;
-            const rel = camZ - zw;
-            if (f === 0 ? rel <= 0 : rel >= 0) continue; // facing away
-            const yNear = horizon + rel * invA;
-            const yFar = horizon + rel * invB;
+            const sloped = f === 0 && sl.ramp;
+
+            // The surface as seen down this ray is z = A + B*d. Flat surfaces
+            // are just B = 0; a ramp is linear in world x or y, and a ray is
+            // linear in d, so it stays linear and the row-to-distance step
+            // below has a closed form either way.
+            let A = f === 0 ? sl.z1 : sl.z0, B = 0;
+            if (sloped) {
+              const k = sl.rampHi - sl.z1;
+              let pa, pb, pc;
+              if (sl.ramp === 1) { pa = sl.z1 - mapX * k; pb = k; pc = 0; }
+              else if (sl.ramp === 2) { pa = sl.z1 + (mapX + 1) * k; pb = -k; pc = 0; }
+              else if (sl.ramp === 3) { pa = sl.z1 - mapY * k; pb = 0; pc = k; }
+              else { pa = sl.z1 + (mapY + 1) * k; pb = 0; pc = -k; }
+              A = pa + pb * camX + pc * camY;
+              B = pb * rayX + pc * rayY;
+            }
+
+            const relA = camZ - (A + B * dA);
+            const relB = camZ - (A + B * dB);
+            // a top is only seen from above it, an underside only from below
+            if (f === 0 ? (relA <= 0 && relB <= 0) : (relA >= 0 && relB >= 0)) continue;
+            const yNear = horizon + relA * invA;
+            const yFar = horizon + relB * invB;
             let y0, y1;
             if (yFar < yNear) { y0 = Math.ceil(yFar); y1 = Math.ceil(yNear); }
             else { y0 = Math.floor(yNear); y1 = Math.floor(yFar); }
             if (y0 < 0) y0 = 0; if (y1 > VIEW_H) y1 = VIEW_H;
             if (y1 <= y0) continue;
             const tex = (textures[texId] || textures[opts.borderTex]).data;
+            const num = (camZ - A) * VIEW_H;
+            const bias = B * VIEW_H;
             paint(y0, y1, (a, b) => {
               for (let y = a; y < b; y++) {
-                const p = y - horizon;
-                if (p === 0) continue;
-                const d = rel * VIEW_H / p;      // distance to this row's ground
+                const den = (y - horizon) + bias;
+                if (den === 0) continue;
+                const d = num / den;             // distance to this row's ground
                 if (d < 0) continue;
+                // A slope has to be held to the slice of ray its cell owns, or
+                // it paints over its neighbours. A flat surface must not be:
+                // the row range was rounded to whole pixels, so a boundary row
+                // can fall a hair outside the span it plainly belongs to, and
+                // dropping it leaves a hole along every floor-to-wall joint.
+                if (sloped && (d < dEnter || d > dExit)) continue;
                 const wx = camX + d * rayX, wy = camY + d * rayY;
                 const tx = ((wx - Math.floor(wx)) * TS) | 0;
                 const ty = ((wy - Math.floor(wy)) * TS) | 0;
