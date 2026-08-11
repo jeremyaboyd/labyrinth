@@ -7,11 +7,22 @@ const Synth = (() => {
   let ac = null;
   let master = null;
   let musicGain = null;
+  let sfxGain = null;
   let noiseBuf = null;
   let enabled = true;
   let musicTimer = null;
   let musicFn = null;
   let musicMs = 4000;
+  // slider positions, 0..1; kept here so they can be set before the context
+  // exists and applied the moment it does
+  let musicVol = 0.7;
+  let sfxVol = 0.6;
+
+  function applyVolumes() {
+    // music tops out at 4x its old fixed level, effects at 2x theirs
+    if (musicGain) musicGain.gain.value = musicVol * 0.64;
+    if (sfxGain) sfxGain.gain.value = sfxVol * 2;
+  }
 
   function startMusicTimer() {
     if (musicTimer || !musicFn || !ac) return;
@@ -31,8 +42,10 @@ const Synth = (() => {
     master.gain.value = 0.5;
     master.connect(ac.destination);
     musicGain = ac.createGain();
-    musicGain.gain.value = 0.16;
     musicGain.connect(master);
+    sfxGain = ac.createGain();
+    sfxGain.connect(master);
+    applyVolumes();
     // shared noise buffer
     noiseBuf = ac.createBuffer(1, ac.sampleRate * 1, ac.sampleRate);
     const d = noiseBuf.getChannelData(0);
@@ -61,7 +74,7 @@ const Synth = (() => {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(master);
+    o.connect(g); g.connect(sfxGain);
     o.start(t); o.stop(t + dur + 0.05);
   }
 
@@ -80,8 +93,30 @@ const Synth = (() => {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(bp); bp.connect(g); g.connect(master);
+    src.connect(bp); bp.connect(g); g.connect(sfxGain);
     src.start(t); src.stop(t + dur + 0.05);
+  }
+
+  // hear the music level while dragging its slider: one short bright tone
+  // through the music bus itself
+  function musicBlip() {
+    if (!ac || !enabled) return;
+    const t = now();
+    const o = ac.createOscillator();
+    o.type = 'triangle';
+    o.frequency.value = 440;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    o.connect(g); g.connect(musicGain);
+    o.start(t); o.stop(t + 0.35);
+  }
+
+  function setVolumes(music01, sfx01) {
+    musicVol = clamp(music01, 0, 1);
+    sfxVol = clamp(sfx01, 0, 1);
+    applyVolumes();
   }
 
   function toggle() {
@@ -91,7 +126,7 @@ const Synth = (() => {
   }
 
   return {
-    init, setMusic, now, tone, noise, toggle,
+    init, setMusic, now, tone, noise, toggle, setVolumes, musicBlip,
     get ready() { return !!ac; },
     get enabled() { return enabled; },
     get ctx() { return ac; },
