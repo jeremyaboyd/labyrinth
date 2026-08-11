@@ -25,9 +25,9 @@ const OW_KINGSHORE = [
   'MMMMM..ttCyyyyyyyyyC..................t.....ss~~',
   'MMMM.....CCCCgggCCCC...................t....ss~~',
   'MMM...........r...t....t..t...t....tt.......ss~~',
-  'MMM....t......r.t.t.....................tt..ss~~',
-  'MMm..t...t....r....................tt.....tsss~~',
-  'MMMt.tt...t..Lr...t.............tt.....t..tsss~~',
+  'MMML...t......r.t.t.....................tt..ss~~',
+  'MMmrrrrrrrrrrrr....................tt.....tsss~~',
+  'MMML.tt...t..Lr...t.............tt.....t..tsss~~',
   'MMMt........t.r.....................t.HWHWHss~~~',
   'MMM.tt....t..tr..t....t...............WHHHWss~~~',
   'MMM.......t...r.t.....HWHWH...HWHWH.t.HHHHHss~~~',
@@ -203,5 +203,18 @@ function buildOverworld() {
     outdoor: true,
   };
   layRamps(lvl, OW_RAMPS, 0);
+  // roof over each mine mouth and the tile in front of it, so both ends of the
+  // Deepcut read as tunnels driven into the rock
+  lvl.lintels = new Uint8Array(w * h);
+  for (const mouth of [mineA, mineB]) {
+    if (!mouth) continue;
+    for (let d = 0; d <= 1; d++) {
+      for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d]]) {
+        const x = mouth.x + dx, y = mouth.y + dy;
+        if (x < 0 || y < 0 || x >= w || y >= h) continue;
+        if (map[y * w + x] === 0) lvl.lintels[y * w + x] = 1;
+      }
+    }
+  }
   return lvl;
 }

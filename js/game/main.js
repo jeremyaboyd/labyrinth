@@ -77,7 +77,7 @@ function loadFloor(n, arriveAt) {
   // the renderer draws stacks of slabs, not tiles: work out how tall each cell
   // stands and what its top and underside look like, once, here
   buildSlabs(lvl, lvl.outdoor
-    ? { floorTex: T_GRASS, ceilTex: 0, rampTex: T_CASTLE }
+    ? { floorTex: T_GRASS, ceilTex: 0, rampTex: T_CASTLE, lintelTex: T_MOUNTAIN }
     : { floorTex: T_FLOOR, ceilTex: T_CEIL, rampTex: T_STONE });
   G.level = lvl;
   G.explored = new Uint8Array(lvl.w * lvl.h);
@@ -338,6 +338,7 @@ function renderWorldView(camX, camY, camA, bob, camZ) {
     opts.flicker = 1;            // no torchlight to gutter out here
     opts.floorTex = T_GRASS;     // only used if a cell has no floorMap entry
     opts.borderTex = T_MOUNTAIN;
+    opts.horizonTex = T_SEA;     // past the last tile the world is open water
   }
   renderView(view, lvl, { x: camX, y: camY, z: (camZ || 0) + 0.5, a: camA, bob },
     buildBillboards(), opts);

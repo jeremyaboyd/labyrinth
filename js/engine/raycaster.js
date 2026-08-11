@@ -117,7 +117,9 @@ function renderView(view, lvl, cam, billboards, opts) {
     // past the last cell -- and once you are up on a cliff looking out, that
     // band is most of the view. Slabs paint over this; what is left is the
     // distance, fading into fog the way it always did.
-    const flat = textures[opts.floorTex];
+    // horizonTex is what lies out there: the range walls the land in on every
+    // side but the shore, so the only place this shows is out to sea.
+    const flat = textures[opts.horizonTex || opts.floorTex];
     const fdata = flat ? flat.data : null;
     const rd0x = dirX - planeX, rd0y = dirY - planeY;
     const rd1x = dirX + planeX, rd1y = dirY + planeY;

@@ -97,7 +97,13 @@ function buildSlabs(lvl, opts) {
       // empty ground, or something solid to walk into that the ray sees past
       // anyway: trees and lamp posts are billboards, the sea is drawn flat
       if (!c || (def && def.noWall)) {
-        slabs[i] = openCell(ground, ceilTex);
+        const cell = openCell(ground, ceilTex);
+        // a mouth cut into a cliff: rock overhead with headroom under it, so
+        // the way in reads as a tunnel and not as a gap in a wall
+        if (lvl.lintels && lvl.lintels[i]) {
+          cell.push({ z0: 1.4, z1: Z_HIGH, side: opts.lintelTex, top: 0, bot: opts.lintelTex });
+        }
+        slabs[i] = cell;
         continue;
       }
 
