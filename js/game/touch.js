@@ -22,6 +22,9 @@ window.TouchUI = (() => {
 
   const SIDE = 156;  // width reserved each side of the screen, landscape
   const CLUSTER = 204; // height of the right-hand cluster: MENU, ABXY, rocker
+  // the left column is the taller of the two: pad well plus the shoulder row
+  const LEFTCOL = 233;
+  const COLUMN = Math.max(CLUSTER, LEFTCOL);
   const LIFT = 56;   // how far the pads sit off the bottom edge, portrait
   const LIFT_L = 28; // ditto landscape, where there is less height to give
 
@@ -48,7 +51,7 @@ window.TouchUI = (() => {
   function reserve() {
     const i = insets();
     return portrait()
-      ? { x: 12 + i.l + i.r, y: LIFT + CLUSTER + 12 + i.b }
+      ? { x: 12 + i.l + i.r, y: LIFT + COLUMN + 12 + i.b }
       : { x: SIDE * 2 + 16 + i.l + i.r, y: 12 + i.b };
   }
 
@@ -113,6 +116,13 @@ window.TouchUI = (() => {
         inset 0 -2px 3px rgba(0,0,0,0.45); }
     #tuiY { left: 45px; top: 34px; }  #tuiX { left: 0;  top: 72px; }
     #tuiB { left: 90px; top: 72px; }  #tuiA { left: 45px; top: 110px; }
+    /* shoulder row, sat on top of the pad well the way a pad's L and R sit on
+       the top edge of the shell. Pack and quick items, which had no button. */
+    #tuiShoulder { left: calc(10px + var(--tui-safe-l, 0px));
+      bottom: calc(var(--tui-lift, 24px) + 189px); width: 132px; height: 44px; }
+    #tuiShoulder .sh { width: 62px; height: 44px; border-radius: 22px;
+      font-size: 13px; letter-spacing: 1px; }
+    #tuiL1 { left: 0; top: 0; }  #tuiL2 { right: 0; left: auto; top: 0; }
     /* the rocker: one convex pill, a groove down the middle */
     #tuiRock { position: absolute; left: 0; right: 0; bottom: 0; height: 40px;
       display: flex; border: 1px solid #080604; border-radius: 20px; overflow: hidden;
@@ -170,6 +180,8 @@ window.TouchUI = (() => {
     + '<div id="tuiB" class="tuiBtn">B</div><div id="tuiA" class="tuiBtn">A</div>'
     + '<div id="tuiRock"><div id="tuiL">&lt;</div><div id="tuiR">&gt;</div></div>');
   const menu = right.querySelector('#tuiMenu');
+  const shoulder = el('tuiShoulder', 'tui',
+    '<div id="tuiL1" class="tuiBtn sh">L1</div><div id="tuiL2" class="tuiBtn sh">L2</div>');
 
   let wasPortrait = null;
   function layout() {
@@ -294,7 +306,7 @@ window.TouchUI = (() => {
   // Whatever a touch pressed is what it releases, even if the state changed.
   function buttonCode(name) {
     if (name === 'B') return G.state === 'play' ? 'Space' : 'Tab';
-    return { A: 'KeyE', X: 'KeyM', Y: 'KeyJ', MENU: 'Tab' }[name];
+    return { A: 'KeyE', X: 'KeyM', Y: 'KeyJ', L1: 'KeyI', L2: 'KeyQ', MENU: 'Tab' }[name];
   }
 
   let bHeld = false; // for hold-to-keep-shooting
@@ -336,6 +348,8 @@ window.TouchUI = (() => {
   wireButton(right.querySelector('#tuiB'), 'B');
   wireButton(right.querySelector('#tuiX'), 'X');
   wireButton(right.querySelector('#tuiY'), 'Y');
+  wireButton(shoulder.querySelector('#tuiL1'), 'L1');
+  wireButton(shoulder.querySelector('#tuiL2'), 'L2');
   wireButton(menu, 'MENU');
 
   // let go of every synthetic key at once, however many touches are down

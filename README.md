@@ -24,30 +24,36 @@ Then visit `http://localhost:8123`.
 
 ## Controls
 
-| Key | Action |
-|---|---|
-| `W` `A` `S` `D` | Move / strafe |
-| Mouse (click to capture) or `←` `→` | Turn |
-| `Space` / left click | Attack with the equipped weapon |
-| `E` | Take the stairs you stand on (pick a floor), open / unlock doors, trade at a shop window |
-| `I` | Open your pack (10 slots) |
-| `Q` | Quick items — drink without hunting through the pack |
-| `J` | Journal — your quests, and which one you are tracking |
-| `Shift` | Run |
-| `M` | Toggle map (fog of war) |
-| `Tab` | Pause menu, and back out of any screen |
-| `↑` `↓` to move, `Enter` / numpad `Enter` / `E` to confirm | Navigate menus |
+| Key | Touch pad | Action |
+|---|---|---|
+| `W` `A` `S` `D` | D-pad | Move / strafe |
+| Mouse (click to capture) or `←` `→` | `<` `>` rocker | Turn |
+| `Space` / left click | `B` | Attack with the equipped weapon |
+| `E` | `A` | Take the stairs you stand on (pick a floor), open / unlock doors, trade at a shop window |
+| `I` | `L1` | Open your pack (10 slots) |
+| `Q` | `L2` | Quick items — drink without hunting through the pack |
+| `J` | `Y` | Journal — your quests, and which one you are tracking |
+| `Shift` | — | Run |
+| `M` | `X` | Toggle map (fog of war) |
+| `Tab` | `MENU` to pause, `B` to back out | Pause menu, and back out of any screen |
+| `↑` `↓` to move, `Enter` / numpad `Enter` / `E` to confirm | D-pad and `A` | Navigate menus |
 
 HELP, on both the title and pause menus, lists all of the above in game.
 Sound, fog of war and an FPS readout are toggled from OPTIONS, on the same
 two menus.
 
-On a phone or tablet the game grows gamepad-style touch controls: an 8-way
-pad on the left walks, a rocker on the right turns, and A/B/X/Y are
-use/attack/map/journal — with B doubling as BACK inside any menu, the way a
-gamepad's B does. A MENU (pause) pill sits above the buttons. All of it is
-multi-touch, so you can walk, turn and shoot at once. Append `?touch=1` to
-the URL to force the controls on a desktop, or `?touch=0` to suppress them.
+On a phone or tablet the game grows gamepad-style touch controls, laid out
+like the pads this game is dressed after: an 8-way d-pad on the left walks,
+`L1` and `L2` sit above it for your pack and quick items, a rocker on the
+right turns, and A/B/X/Y are use/attack/map/journal — with B doubling as
+BACK inside any menu, the way a gamepad's B does. A MENU pill above the
+buttons pauses. All of it is multi-touch, so you can walk, turn and shoot at
+once. Running has no button of its own. Append `?touch=1` to the URL to
+force the controls on a desktop, or `?touch=0` to suppress them.
+
+With the pads up, the game stops naming keys you do not have: every prompt,
+hint and the HELP screen name the button instead — `A - DESCEND` rather than
+`E - DESCEND`.
 
 Hold the device whichever way you like. Portrait stacks the screen above the
 pads; landscape sets the pads either side of it and gives the game a wider

@@ -134,7 +134,7 @@ function drawDialogue() {
   ctx.fillStyle = '#3a3028';
   ctx.fillRect(x + 8, y + 17, w - 16, 1);
   d.lines.forEach((line, i) => drawText(ctx, line, x + 10, y + 23 + i * 10, '#d8ccb0', 1));
-  drawRight('ENTER/E CONTINUE', x + w - 8, y + h - 10, '#544c40');
+  drawRight(controlText('ENTER/E CONTINUE'), x + w - 8, y + h - 10, '#544c40');
 }
 
 // ---------- journal ----------
@@ -230,7 +230,7 @@ function drawStairs() {
   ctx.fillRect(18, y - 6, W - 36, 1);
   const way = up ? 'UP' : 'DOWN';
   drawText(ctx, (n === 1 ? 'ONE FLIGHT ' : n + ' FLIGHTS ') + way, 20, y, '#8a8078', 1);
-  drawRight((up ? 'ENTER/E CLIMB' : 'ENTER/E DESCEND') + '   TAB STAY', W - 24, VIEW_H - 20, '#544c40');
+  drawRight(controlText((up ? 'ENTER/E CLIMB' : 'ENTER/E DESCEND') + '   TAB STAY'), W - 24, VIEW_H - 20, '#544c40');
 }
 
 function openQuestAction() {
@@ -297,7 +297,7 @@ function drawJournal() {
     drawText(ctx, 'FROM ' + sel.def.from, 20, y, '#6a6058', 1);
     drawText(ctx, sel.def.steps[Math.max(0, sel.entry.revealed - 1)], 20, y + 10, '#8a8078', 1);
   }
-  drawRight('ENTER/E OPTIONS   J OR TAB CLOSE', W - 24, VIEW_H - 20, '#544c40');
+  drawRight(controlText('ENTER/E OPTIONS   J OR TAB CLOSE'), W - 24, VIEW_H - 20, '#544c40');
 }
 
 function drawQuestAction() {
@@ -337,7 +337,7 @@ function drawQuestDetail() {
   if (q.entry.revealed < q.def.steps.length) {
     drawText(ctx, '...THE REST IS NOT YET KNOWN.', 28, y + 2, '#544c40', 1);
   }
-  drawTextCentered(ctx, q.entry.done ? 'COMPLETE' : 'TAB BACK', W / 2, VIEW_H - 32, '#544c40', 1);
+  drawTextCentered(ctx, q.entry.done ? 'COMPLETE' : controlText('TAB BACK'), W / 2, VIEW_H - 32, '#544c40', 1);
 }
 
 function itemActions(slot) {
@@ -490,7 +490,7 @@ function drawInventory() {
   }
 
   drawText(ctx, 'GOLD ' + p.gold, 12, VIEW_H - 18, '#e8c040', 1);
-  drawRight('ENTER/E ACTIONS   I OR TAB CLOSE', W - 12, VIEW_H - 18, '#544c40');
+  drawRight(controlText('ENTER/E ACTIONS   I OR TAB CLOSE'), W - 12, VIEW_H - 18, '#544c40');
 }
 
 // short stat readout shown in the pack and the shop
@@ -554,7 +554,7 @@ function drawHotlist() {
     drawRight('X' + e.n, x + w - (scrolls ? 16 : 8), ry, '#8a8078');
   }
   if (scrolls) drawScrollbar(x + w - 7, y + 22, vis * 14, top, total, vis);
-  drawTextCentered(ctx, 'ENTER/E DRINK   Q OR TAB CLOSE', x + w / 2, y + h - 11, '#544c40', 1);
+  drawTextCentered(ctx, controlText('ENTER/E DRINK   Q OR TAB CLOSE'), x + w / 2, y + h - 11, '#544c40', 1);
   drawText(ctx, 'HP ' + Math.ceil(p.hp) + '/' + p.maxHp + '   MP ' + Math.floor(p.mp) + '/' + p.maxMp,
     x + 8, y + 16, '#6a6058', 1);
 }
@@ -629,5 +629,5 @@ function drawShop() {
     if (d.blurb) drawText(ctx, d.blurb, 20, y + 10, '#5f584e', 1);
   }
   drawText(ctx, 'GOLD ' + p.gold, 20, VIEW_H - 20, '#e8c040', 1);
-  drawRight('ENTER/E BUY   TAB LEAVE', W - 24, VIEW_H - 20, '#544c40');
+  drawRight(controlText('ENTER/E BUY   TAB LEAVE'), W - 24, VIEW_H - 20, '#544c40');
 }
