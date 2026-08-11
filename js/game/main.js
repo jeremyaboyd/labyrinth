@@ -261,7 +261,10 @@ function loadFromSlot(slot) {
 // the ground a sprite stands on, so nothing floats over a ledge or sinks
 // into a ramp
 function standZ(lvl, x, y) {
-  const g = groundUnder(lvl, x, y, 8);
+  // from the base level, not from any height: asking how high a body could
+  // reach would let a prop stand on the roof of the tunnel it is meant to
+  // frame, which is exactly what the mine timbers did
+  const g = groundUnder(lvl, x, y, 0);
   return g === null ? 0 : g;
 }
 
@@ -271,7 +274,10 @@ function buildBillboards() {
   if (lvl.props) {
     const lit = lampsLit(G.clock);
     for (const pr of lvl.props) {
-      if (pr.type === 'tree') {
+      if (pr.type === 'mineframe') {
+        out.push({ x: pr.x, y: pr.y, z: standZ(lvl, pr.x, pr.y),
+          img: SPRITES.mineFrame[0], hFrac: 1.5, zOff: 0, glow: false });
+      } else if (pr.type === 'tree') {
         out.push({ x: pr.x, y: pr.y, z: standZ(lvl, pr.x, pr.y), img: SPRITES.tree[pr.variant], hFrac: 1.9, zOff: 0, glow: false });
       } else {
         const img = lit ? SPRITES.lampOn[((G.time * 9 + pr.phase) | 0) % 3] : SPRITES.lampOff[0];

@@ -207,6 +207,9 @@ function buildOverworld() {
   // Deepcut read as tunnels driven into the rock
   lvl.lintels = new Uint8Array(w * h);
   for (const mouth of [mineA, mineB]) {
+    if (mouth) props.push({ type: 'mineframe', x: mouth.x + 0.5, y: mouth.y + 0.5 });
+  }
+  for (const mouth of [mineA, mineB]) {
     if (!mouth) continue;
     for (let d = 0; d <= 1; d++) {
       for (const [dx, dy] of [[d, 0], [-d, 0], [0, d], [0, -d]]) {
