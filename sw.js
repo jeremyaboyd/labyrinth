@@ -4,7 +4,7 @@
 // you ship, which is what evicts the old copy.
 'use strict';
 
-const VERSION = 'labyrinth-v1';
+const VERSION = 'labyrinth-v2';
 
 const SHELL = [
   './',
