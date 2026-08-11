@@ -68,18 +68,49 @@ function addMsg(text) {
 }
 
 // ---------- floor / run management ----------
+// The stairways are part of the ground: a black shaft with a ladder, cut into
+// the floor where the way down is, and into the ceiling where you came up.
+// The mine's ends are mouths in a cliff, not shafts, so it marks nothing.
+function markStairways(lvl) {
+  if (!lvl.slabs || lvl.floorNum === MINE_FLOOR) return;
+  const stamp = (spot, ceiling, tex) => {
+    if (!spot) return;
+    const cell = lvl.slabs[spot.y * lvl.w + spot.x];
+    if (!cell) return;
+    for (const sl of cell) {
+      if (!ceiling && sl.top && !sl.ramp && sl.z1 <= 0) { sl.top = tex; return; }
+      if (ceiling && sl.bot && sl.z0 >= 1) { sl.bot = tex; return; }
+    }
+  };
+  // on the crown's floor the way deeper stays sealed until the crown is taken
+  if (!lvl.hasCrown || G.crownTaken) stamp(lvl.exit, false, T_HOLE_DOWN);
+  if (lvl.floorNum > 0) stamp(lvl.start, true, T_HOLE_UP);
+}
+
 // arriveAt: 'start' (you came down, or the run begins) | 'exit' (you came back up)
 function loadFloor(n, arriveAt) {
   // level 0 is the fixed surface; everything below it is rolled from the seed
-  const lvl = n === 0 ? buildOverworld() : generateDungeon(n, (G.baseSeed + n * 7919) >>> 0);
+  const lvl = n === 0 ? buildOverworld()
+    : n === MINE_FLOOR ? buildMine((G.baseSeed ^ 0x5EEDCA7E) >>> 0)
+    : generateDungeon(n, (G.baseSeed + n * 7919) >>> 0);
+  // the renderer draws stacks of slabs, not tiles: work out how tall each cell
+  // stands and what its top and underside look like, once, here
+  buildSlabs(lvl, lvl.outdoor
+    ? { floorTex: T_GRASS, ceilTex: 0, rampTex: T_CASTLE, lintelTex: T_MOUNTAIN }
+    : { floorTex: lvl.floorTex || T_FLOOR, ceilTex: lvl.ceilTex || T_CEIL, rampTex: T_STONE });
+  markStairways(lvl);
   G.level = lvl;
   G.explored = new Uint8Array(lvl.w * lvl.h);
-  // ground you have already walked stays walked: no fog on a floor you finished
-  if (n <= G.deepest) G.explored.fill(1);
+  // ground you have already walked stays walked: no fog on a floor you finished.
+  // The mine is off to the side of the descent, so it is never "already done".
+  if (n >= 0 && n <= G.deepest) G.explored.fill(1);
   if (n > G.deepest) G.deepest = n;
   G.floorNames[n] = lvl.name;
   const p = G.player;
-  const spot = arriveAt === 'exit' ? lvl.exit : lvl.start;
+  const spot = arriveAt === 'exit' ? lvl.exit
+    : arriveAt === 'mineA' ? (lvl.mineA || lvl.start)
+    : arriveAt === 'mineB' ? (lvl.mineB || lvl.start)
+    : lvl.start;
   p.x = spot.x + 0.5;
   p.y = spot.y + 0.5;
   p.keys = 0;
@@ -247,34 +278,48 @@ function loadFromSlot(slot) {
 }
 
 // ---------- world rendering assembly ----------
+// the ground a sprite stands on, so nothing floats over a ledge or sinks
+// into a ramp
+function standZ(lvl, x, y) {
+  // from the base level, not from any height: asking how high a body could
+  // reach would let a prop stand on the roof of the tunnel it is meant to
+  // frame, which is exactly what the mine timbers did
+  const g = groundUnder(lvl, x, y, 0);
+  return g === null ? 0 : g;
+}
+
 function buildBillboards() {
   const lvl = G.level;
   const out = [];
   if (lvl.props) {
     const lit = lampsLit(G.clock);
     for (const pr of lvl.props) {
-      if (pr.type === 'tree') {
-        out.push({ x: pr.x, y: pr.y, img: SPRITES.tree[pr.variant], hFrac: 1.9, zOff: 0, glow: false });
+      if (pr.type === 'mineframe') {
+        out.push({ x: pr.x, y: pr.y, z: standZ(lvl, pr.x, pr.y),
+          img: SPRITES.mineFrame[0], hFrac: 1.5, zOff: 0, glow: false });
+      } else if (pr.type === 'tree') {
+        out.push({ x: pr.x, y: pr.y, z: standZ(lvl, pr.x, pr.y), img: SPRITES.tree[pr.variant], hFrac: 1.9, zOff: 0, glow: false });
       } else {
         const img = lit ? SPRITES.lampOn[((G.time * 9 + pr.phase) | 0) % 3] : SPRITES.lampOff[0];
-        out.push({ x: pr.x, y: pr.y, img, hFrac: 1.35, zOff: 0, glow: lit });
+        out.push({ x: pr.x, y: pr.y, z: standZ(lvl, pr.x, pr.y), img, hFrac: 1.35, zOff: 0, glow: lit });
       }
     }
   }
   for (const v of G.npcs) {
     const frames = v.role === 'king' ? SPRITES.king : SPRITES['villager' + v.kind];
     const fi = v.moving ? ((v.walkPhase | 0) % 2 + 2) % 2 : 2;
-    out.push({ x: v.x, y: v.y, img: frames[fi], hFrac: 0.8, zOff: 0, glow: false });
+    out.push({ x: v.x, y: v.y, z: v.z || 0, img: frames[fi], hFrac: 0.8, zOff: 0, glow: false });
   }
   for (const t of lvl.torches) {
     const fi = ((G.time * 9 + t.phase) | 0) % 3;
-    out.push({ x: t.x, y: t.y, img: SPRITES.torch[fi], hFrac: 0.44, zOff: 0.38, glow: true });
+    out.push({ x: t.x, y: t.y, z: standZ(lvl, t.x, t.y), img: SPRITES.torch[fi], hFrac: 0.44, zOff: 0.38, glow: true });
   }
-  if (!lvl.hasCrown || G.crownTaken) {
-    out.push({ x: lvl.exit.x + 0.5, y: lvl.exit.y + 0.5, img: SPRITES.stairs[0], hFrac: 0.9, zOff: 0, glow: false });
-  }
-  if (lvl.floorNum > 0) { // the way back up; the surface has none
-    out.push({ x: lvl.start.x + 0.5, y: lvl.start.y + 0.5, img: SPRITES.stairsUp[0], hFrac: 0.9, zOff: 0, glow: false });
+  // the stairways are tiles now -- a hole with a ladder, laid by markStairways
+  // -- so the only markers left standing are the mine's timber frames
+  if (lvl.floorNum === MINE_FLOOR) {
+    for (const spot of [lvl.start, lvl.exit]) {
+      out.push({ x: spot.x + 0.5, y: spot.y + 0.5, z: 0, img: SPRITES.mineFrame[0], hFrac: 1.0, zOff: 0, glow: false });
+    }
   }
   for (const it of G.items) {
     const bobZ = 0.04 + Math.sin(it.bob) * 0.02;
@@ -303,7 +348,8 @@ function buildBillboards() {
   return out;
 }
 
-function renderWorldView(camX, camY, camA, bob) {
+// camZ is the eye, which is half a tile over whatever the feet stand on
+function renderWorldView(camX, camY, camA, bob, camZ) {
   const lvl = G.level;
   const opts = {
     textures: Textures, texSize: TEX_SIZE,
@@ -319,8 +365,10 @@ function renderWorldView(camX, camY, camA, bob) {
     opts.flicker = 1;            // no torchlight to gutter out here
     opts.floorTex = T_GRASS;     // only used if a cell has no floorMap entry
     opts.borderTex = T_MOUNTAIN;
+    opts.horizonTex = T_SEA;     // past the last tile the world is open water
   }
-  renderView(view, lvl, { x: camX, y: camY, a: camA, bob }, buildBillboards(), opts);
+  renderView(view, lvl, { x: camX, y: camY, z: (camZ || 0) + 0.5, a: camA, bob },
+    buildBillboards(), opts);
 }
 
 // ---------- input wiring ----------
@@ -542,7 +590,7 @@ function drawFrame(t) {
   // render 3D view (also as backdrop for pause/dead/win)
   const p = G.player;
   const bobY = p.moving ? Math.sin(p.bobPhase * 2) * 1.6 : 0;
-  renderWorldView(p.x, p.y, p.a, bobY);
+  renderWorldView(p.x, p.y, p.a, bobY, p.z);
   let sx = 0, sy = 0;
   if (G.shakeT > 0) {
     sx = ((Math.random() * 5) | 0) - 2;

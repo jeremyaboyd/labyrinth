@@ -4,6 +4,7 @@
 function newPlayer() {
   const p = {
     x: 0, y: 0, a: 0,
+    z: 0, vz: 0,      // feet height, and the fall in progress
     hp: 100, maxHp: 100,
     mp: START_KIT.mp, maxMp: START_KIT.mp,
     gold: 0, keys: 0, floor: 1,
@@ -121,6 +122,7 @@ function npcInFront() {
 // lands you squarely on it, and that would drop you straight through again.
 function stairsUnderFoot() {
   const p = G.player, lvl = G.level;
+  if (lvl.floorNum === MINE_FLOOR) return null;  // its ends are mine mouths
   if ((!lvl.hasCrown || G.crownTaken)
       && Math.hypot(lvl.exit.x + 0.5 - p.x, lvl.exit.y + 0.5 - p.y) < 0.6) return 'down';
   if (lvl.floorNum > 0
@@ -131,11 +133,35 @@ function stairsUnderFoot() {
 // either way, the stairwell asks how far you mean to go
 function takeStairs(dir) { openStairs(dir); }
 
+// The mine has a mouth at each end and no floors to choose between, so it is
+// the one crossing that just happens when you press E.
+function mineMouthUnderFoot() {
+  const p = G.player, lvl = G.level;
+  const on = (spot) => spot && Math.hypot(spot.x + 0.5 - p.x, spot.y + 0.5 - p.y) < 0.7;
+  if (lvl.floorNum === 0) {
+    if (on(lvl.mineA)) return { to: MINE_FLOOR, at: 'start', text: 'ENTER THE MINE' };
+    if (on(lvl.mineB)) return { to: MINE_FLOOR, at: 'exit', text: 'ENTER THE MINE' };
+  } else if (lvl.floorNum === MINE_FLOOR) {
+    if (on(lvl.start)) return { to: 0, at: 'mineA', text: 'OUT TO KINGSHORE' };
+    if (on(lvl.exit)) return { to: 0, at: 'mineB', text: 'OUT TO THE VALE' };
+  }
+  return null;
+}
+
 // E: take the stairs you are on, speak to whoever is there, else open the
 // door or shop window ahead
 function useFront() {
   const p = G.player;
   const lvl = G.level;
+
+  const mine = mineMouthUnderFoot();
+  if (mine) {
+    SFX.stairs();
+    G.state = 'transition';
+    G.transT = 0;
+    changeFloor(mine.to, mine.at);
+    return;
+  }
 
   const stair = stairsUnderFoot();
   if (stair) { takeStairs(stair); return; }
@@ -208,6 +234,8 @@ function updatePlay(dt) {
     p.stepAcc += dt * (run ? 11 : 8);
     if (p.stepAcc > Math.PI) { p.stepAcc -= Math.PI; SFX.step(); }
   }
+  // ground follows you: up a ramp, down off a ledge
+  settleZ(lvl, p, dt);
 
   // attack timeline
   if (p.atkCd > 0) p.atkCd -= dt;
@@ -277,6 +305,7 @@ function updatePlay(dt) {
         fetchPickup(p, it.qid); // somebody's keepsake, carried, not packed
       } else if (it.type === 'crown') {
         G.crownTaken = true;
+        markStairways(G.level); // the way deeper opens in the floor
         questComplete(p, 'crown');
         G.state = 'win';
         SFX.victory(); // the delve carries on, so the mouse stays captured
@@ -323,6 +352,7 @@ function updateVillagers(dt) {
     if (v.idle) { v.moving = false; continue; }
     const ox = v.x, oy = v.y;
     tryMove(lvl, v, Math.cos(v.dir) * 0.85 * dt, Math.sin(v.dir) * 0.85 * dt, 0.28);
+    settleZ(lvl, v, dt);
     v.moving = Math.abs(v.x - ox) + Math.abs(v.y - oy) > 0.0005;
     if (!v.moving) v.dirT = 0; // walked into a wall, try somewhere else
     else v.walkPhase += dt * 5;
@@ -365,6 +395,7 @@ function updateEnemies(dt) {
         if (e.dirT <= 0) { e.dir = Math.random() * Math.PI * 2; e.dirT = 1.5 + Math.random() * 2.5; }
         const ox = e.x, oy = e.y;
         tryMove(lvl, e, Math.cos(e.dir) * st.speed * 0.25 * dt, Math.sin(e.dir) * st.speed * 0.25 * dt, 0.28);
+        settleZ(lvl, e, dt);
         if (Math.abs(e.x - ox) + Math.abs(e.y - oy) < 0.001) e.dirT = 0;
         e.walkPhase += dt * 3;
         continue;
@@ -409,6 +440,7 @@ function updateEnemies(dt) {
       const vl = Math.hypot(vx, vy) || 1;
       const beforeX = e.x, beforeY = e.y;
       tryMove(lvl, e, (vx / vl) * st.speed * dt, (vy / vl) * st.speed * dt, 0.28);
+      settleZ(lvl, e, dt);
       if (Math.abs(e.x - beforeX) + Math.abs(e.y - beforeY) < st.speed * dt * 0.2) {
         // stuck: pick a perpendicular escape direction
         e.dir += (Math.random() < 0.5 ? 1 : -1) * (Math.PI / 2) + (Math.random() - 0.5);

@@ -47,6 +47,38 @@ function painVariant(frame) {
   return { w: frame.w, h: frame.h, data: d };
 }
 
+
+// ---------------- the mine mouth ----------------
+// Pit props: two legs and a cap beam, braced at the corners, with the tunnel
+// left open between them. It is what tells you a hole in a cliff is a way in.
+const TIMBER = '#7a5426', TIMBER_L = '#9c6d36', TIMBER_D = '#4a3016';
+
+function drawMineFrame(ctx, p) {
+  const W = 32, H = 40;
+  // cap beam across the top, overhanging both legs
+  p.rect(0, 3, W, 7, TIMBER);
+  p.rect(0, 3, W, 2, TIMBER_L);
+  p.rect(0, 9, W, 1, TIMBER_D);
+  // a second, shorter beam sat on the first
+  p.rect(4, 0, W - 8, 3, TIMBER_D);
+
+  for (const lx of [3, W - 9]) {
+    p.rect(lx, 10, 6, H - 10, TIMBER);
+    p.rect(lx, 10, 2, H - 10, TIMBER_L);       // lit edge
+    p.rect(lx + 5, 10, 1, H - 10, TIMBER_D);   // shadowed edge
+    // grain
+    for (let y = 13; y < H - 2; y += 5) p.rect(lx + 2, y, 3, 1, TIMBER_D);
+  }
+
+  // corner braces, cut at 45 degrees into the corners
+  for (let i = 0; i < 6; i++) {
+    p.rect(9 + i, 10 + i, 3, 2, i < 3 ? TIMBER_L : TIMBER);
+    p.rect(W - 12 - i, 10 + i, 3, 2, i < 3 ? TIMBER_L : TIMBER);
+  }
+  // bolts
+  for (const bx of [5, W - 7]) { p.px(bx, 12, '#3a2a18'); p.px(bx, 24, '#3a2a18'); }
+}
+
 // ---------------- enemies ----------------
 
 const BONE = '#d8d0c0', BONE_D = '#968d78', DARK = '#1a140f';
@@ -647,6 +679,7 @@ function generateSprites() {
   ];
   SPRITES.stairs = [makeSpriteFrame(32, 34, drawStairsDown)];
   SPRITES.stairsUp = [makeSpriteFrame(32, 34, drawStairsUp)];
+  SPRITES.mineFrame = [makeSpriteFrame(32, 40, drawMineFrame)];
   SPRITES.crown = [
     makeSpriteFrame(20, 16, (c, p) => drawCrown(c, p, 0)),
     makeSpriteFrame(20, 16, (c, p) => drawCrown(c, p, 1)),

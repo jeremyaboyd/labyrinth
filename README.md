@@ -17,6 +17,9 @@ Serve the folder with any static file server and open it in a browser:
 python -m http.server 8123
 ```
 
+Append `?nosw=1` while editing: the service worker caches the shell hard,
+which is right for a game you install and wrong for one you are changing.
+
 Then visit `http://localhost:8123`.
 
 ## Controls
@@ -80,11 +83,22 @@ shops update still load — those runs simply keep their starting kit.
 
 ## The game
 
-- **The surface (level 0)** — a fixed, hand-drawn world: a village of timber
-  cottages, woods, a castle against the mountains, and a beach along the bay.
-  Mountains wall off the north and west, the sea closes the south and east.
-  Villagers wander the lanes. It is the same world every run — only what lies
-  below is rolled fresh.
+- **The surface (level 0)** — a fixed, hand-drawn world, 96 by 88 tiles,
+  assembled from regions stamped into a canvas of mountain. Kingshore has its
+  timber cottages, woods, a castle against the range, and a beach along the
+  bay; the northern vale lies on the far side of the mountains with a second
+  village of its own. Villagers wander both. It is the same world every run —
+  only what lies below is rolled fresh.
+- **Height** — the world stacks. The castle stands three storeys with a walk
+  along the top, cottages have an upper floor, and the range that walls the
+  world in is a five-tile cliff. Stone flights climb at 45 degrees, and
+  anything that walks can take them: step up half a tile unaided, walk up a
+  ramp, fall off what you walk off.
+- **The Deepcut Mine** — the only road to the vale. A mouth in the range above
+  Kingshore, one level of maze with its own monsters and loot, and a second
+  mouth out the far side. It sits beside the descent rather than in it, so it
+  never appears in the stairwell's list of floors: press `E` at either end and
+  you cross.
 - **Day and night** — one real minute is one hour. Dawn breaks at 6, full day
   runs from 7, dusk falls at 21 and night holds from 22. The sky shifts from
   stars to sunrise to blue to a red sunset and back, the land brightens and
@@ -144,9 +158,16 @@ shops update still load — those runs simply keep their starting kit.
 
 ## Tech notes
 
-- Pure canvas software rendering: DDA raycast walls, per-row textured
-  floor/ceiling casting, z-buffered billboard sprites, distance fog quantized
-  into DOS-style light bands, torch flicker.
+- Pure canvas software rendering. A cell holds a list of solid spans in z
+  rather than one wall, each with a texture for its sides, top and underside,
+  so a ceiling is just the underside of the slab above you. Columns march
+  front to back into a list of unpainted screen spans, which keeps the cost
+  near one write per pixel however deep the stack goes. Sloped ground needs no
+  subdivision: a ray is linear in distance and a ramp is linear in world x or
+  y, so the surface down one ray is `z = A + B*d` and inverting it for a
+  screen row has a closed form — flat ground is the same path with `B = 0`.
+  Depth is per pixel, because down one column the distance varies. Distance
+  fog is quantized into DOS-style light bands.
 - Wolf3D-style sliding doors rendered in the raycast core; shop windows are
   ordinary solid wall tiles, placed only on walls with a single exposed face
   so the window art is never seen from behind. Their lettering is pre-flipped

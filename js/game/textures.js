@@ -421,7 +421,130 @@ function generateTextures(seed) {
     }
   });
 
+  generateMineTextures(rng);
   generateWorldTextures(rng);
+}
+
+// ---------------- the mine ----------------
+
+function generateMineTextures(rng) {
+  // packed earth, layered in strata with the odd stone left in the cut
+  const earth = (px, x, y, dim) => {
+    const strata = Math.sin(y * 0.22 + Math.sin(x * 0.05) * 2.5) * 0.10;
+    let s = 0.78 + strata + (Math.sin(x * 12.9898 + y * 78.233) % 1) * 0.10;
+    s *= dim;
+    texPut(px, x, y, 96 * s, 72 * s, 50 * s);
+  };
+
+  buildTexture(T_DIRT, (px) => {
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) earth(px, x, y, 1);
+    for (let i = 0; i < 34; i++) {
+      const cx = rngInt(rng, 2, 61), cy = rngInt(rng, 2, 61), rr = rngInt(rng, 1, 3);
+      for (let dy = -rr; dy <= rr; dy++) for (let dx = -rr; dx <= rr; dx++) {
+        if (dx * dx + dy * dy > rr * rr) continue;
+        const s = 0.55 + rng() * 0.35;
+        texPut(px, cx + dx, cy + dy, 84 * s, 80 * s, 74 * s);
+      }
+    }
+  });
+
+  // the same earth, shored: posts up both edges and a cap beam across the top,
+  // which is what holds a mine gallery up
+  buildTexture(T_MINE_SUPPORT, (px) => {
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) earth(px, x, y, 0.9);
+    const wood = (x, y, s) => texPut(px, x, y, 122 * s, 84 * s, 38 * s);
+    const post = (x0) => {
+      for (let y = 0; y < TEX_SIZE; y++) for (let x = x0; x < x0 + 9; x++) {
+        let s = 0.9 + (Math.sin(y * 0.9 + x * 7.7) % 1) * 0.12;   // grain
+        if (x === x0 || x === x0 + 8) s = 0.45;                    // shadowed edges
+        else if (x === x0 + 1) s = 1.15;                           // lit edge
+        wood(x, y, s);
+      }
+    };
+    post(0); post(TEX_SIZE - 9);
+    for (let y = 0; y < 10; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      let s = 0.95 + (Math.sin(x * 0.8 + y * 5.1) % 1) * 0.12;
+      if (y === 9) s = 0.4;
+      if (y === 0) s = 1.1;
+      wood(x, y, s);
+    }
+    // bolt heads where beam meets post
+    for (const bx of [4, TEX_SIZE - 5]) { texPut(px, bx, 4, 40, 30, 20); texPut(px, bx + 1, 4, 40, 30, 20); }
+  });
+
+  buildTexture(T_DIRT_FLOOR, (px) => {
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      let s = 0.62 + (Math.sin(x * 12.9898 + y * 78.233) % 1) * 0.12;
+      texPut(px, x, y, 88 * s, 68 * s, 48 * s);
+    }
+    // cart-worn ruts running through the gallery
+    for (const ry of [22, 42]) for (let x = 0; x < TEX_SIZE; x++) {
+      const s = 0.45 + (Math.sin(x * 3.1) % 1) * 0.06;
+      texPut(px, x, ry, 80 * s, 62 * s, 44 * s);
+      texPut(px, x, ry + 1, 80 * s, 62 * s, 44 * s);
+    }
+    for (let i = 0; i < 40; i++) {
+      const x = rngInt(rng, 0, 63), y = rngInt(rng, 0, 63);
+      const s = 0.5 + rng() * 0.5;
+      texPut(px, x, y, 76 * s, 70 * s, 62 * s);
+    }
+  });
+
+  // boards laid over the earth overhead, a gap of dark between each
+  buildTexture(T_PLANK_CEIL, (px) => {
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      const plank = Math.floor(y / 8);
+      const t = Math.sin(plank * 37.7) * 43758.5453;
+      let s = 0.55 + (t - Math.floor(t) - 0.5) * 0.18 + (Math.sin(x * 0.7 + plank * 9.1) % 1) * 0.08;
+      if (y % 8 === 0) s = 0.22;                       // the gap between boards
+      if (x % 32 === 5 && y % 8 > 1 && y % 8 < 5) s *= 0.6; // nail shadows
+      texPut(px, x, y, 104 * s, 74 * s, 40 * s);
+    }
+  });
+
+  // ---- the stairways: a hole and a ladder, not a billboard ----
+  // A ring of laid slabs, the shaft black inside it, and the ladder's two
+  // rails with rungs crossing the dark. The same art both ways up: the floor
+  // one reads as the way down, the ceiling one as the shaft you climbed.
+  const holeGen = (isCeiling) => (px) => {
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      // surround: worn stone, matching the dungeon floor's palette closely
+      // enough to sit on any ground it is stamped into
+      let s = 0.75 + (Math.sin(x * 12.9898 + y * 78.233) % 1) * 0.08;
+      if (isCeiling) s *= 0.7;
+      texPut(px, x, y, 78 * s, 72 * s, 66 * s);
+    }
+    const C = TEX_SIZE / 2, R = 24;
+    for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
+      const d = Math.hypot(x - C + 0.5, y - C + 0.5);
+      if (d < R) {
+        texPut(px, x, y, 4, 3, 2);                       // the black of the shaft
+      } else if (d < R + 3) {
+        const s = 0.5 + (Math.sin((x + y) * 2.7) % 1) * 0.1;  // the laid rim
+        texPut(px, x, y, 96 * s, 90 * s, 80 * s);
+      }
+    }
+    // the ladder, crossing the hole a little off centre
+    for (const rx of [C - 9, C + 7]) {
+      for (let y = 0; y < TEX_SIZE; y++) {
+        const d = Math.hypot(rx - C + 1, y - C + 0.5);
+        if (d >= R + 2) continue;
+        for (let w = 0; w < 3; w++) {
+          const s = w === 1 ? 1.0 : 0.7;
+          texPut(px, rx + w, y, 122 * s, 84 * s, 38 * s);
+        }
+      }
+    }
+    for (let ry = 6; ry < TEX_SIZE - 4; ry += 9) {
+      for (let x = C - 7; x < C + 8; x++) {
+        if (Math.hypot(x - C + 0.5, ry - C + 0.5) >= R + 1) continue;
+        texPut(px, x, ry, 100, 70, 32);
+        texPut(px, x, ry + 1, 70, 48, 22);
+      }
+    }
+  };
+  buildTexture(T_HOLE_DOWN, holeGen(false));
+  buildTexture(T_HOLE_UP, holeGen(true));
 }
 
 // ---------------- surface world (level 0) ----------------
