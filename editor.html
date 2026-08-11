@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LABYRINTH — Level Designer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0c0906">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="stylesheet" href="editor.css">
+</head>
+<body>
+<div id="ed">
+  <header id="ed-top">
+    <span id="ed-title">LABYRINTH LEVEL DESIGNER</span>
+    <nav id="ed-tabs">
+      <button class="tab active" data-tab="map">MAP</button>
+      <button class="tab" data-tab="quests">QUESTS</button>
+      <button class="tab" data-tab="tiles">TILES</button>
+      <button class="tab" data-tab="textures">TEXTURES</button>
+    </nav>
+    <span id="ed-actions">
+      <button id="btn-play">PLAY TEST</button>
+      <button id="btn-export">EXPORT ZIP</button>
+      <button id="btn-revert" class="danger">REVERT ALL</button>
+    </span>
+  </header>
+
+  <main id="panel-map" class="panel">
+    <div id="map-side">
+      <fieldset>
+        <legend>WORLD</legend>
+        <label>NAME <input id="world-name" maxlength="24"></label>
+        <label>SIZE <input id="world-w" type="number" min="16" max="256"> x
+          <input id="world-h" type="number" min="16" max="256">
+          <button id="btn-resize">APPLY</button></label>
+        <div class="hint">RESIZE PADS OR CROPS WITH MOUNTAIN</div>
+      </fieldset>
+      <fieldset>
+        <legend>TOOL</legend>
+        <div id="map-tools">
+          <button class="tool active" data-tool="draw">DRAW</button>
+          <button class="tool" data-tool="fill">FILL</button>
+          <button class="tool" data-tool="start">START</button>
+          <button class="tool" data-tool="king">KING</button>
+          <button class="tool" data-tool="villager">VILLAGER</button>
+          <button class="tool" data-tool="ramp">RAMP</button>
+        </div>
+        <div id="ramp-opts" class="hidden">
+          CLIMBS <select id="ramp-dir">
+            <option value="1">EAST</option><option value="2">WEST</option>
+            <option value="3">SOUTH</option><option value="4">NORTH</option>
+          </select>
+          LEN <input id="ramp-len" type="number" min="1" max="8" value="1">
+          <div class="hint">RIGHT-CLICK A RAMP TO REMOVE ITS FLIGHT</div>
+        </div>
+        <div id="start-opts" class="hidden">
+          FACING <select id="start-dir">
+            <option value="0">EAST</option><option value="3.14159">WEST</option>
+            <option value="1.5708">SOUTH</option><option value="-1.5708">NORTH</option>
+          </select>
+        </div>
+        <div class="hint">RIGHT-CLICK PICKS THE GLYPH UNDER THE CURSOR</div>
+      </fieldset>
+      <fieldset id="fs-portals">
+        <legend>WAYS DOWN</legend>
+        <div id="portal-list"></div>
+        <div id="portal-add">
+          <button id="btn-add-dungeon">ADD DUNGEON</button>
+          <button id="btn-add-mine">ADD MINE</button>
+        </div>
+        <div class="hint">A SEALED WAY OPENS ONLY TO A QUEST'S KEY</div>
+      </fieldset>
+      <fieldset id="fs-legend">
+        <legend>GLYPHS</legend>
+        <div id="glyph-list"></div>
+        <div id="glyph-add">
+          <input id="new-glyph-ch" maxlength="1" placeholder="?">
+          <select id="new-glyph-wall"></select>
+          <select id="new-glyph-floor"></select>
+          <button id="btn-add-glyph">ADD</button>
+        </div>
+      </fieldset>
+      <div id="map-warn"></div>
+    </div>
+    <div id="map-main">
+      <canvas id="mapcanvas"></canvas>
+      <div id="map-status">&nbsp;</div>
+    </div>
+  </main>
+
+  <main id="panel-quests" class="panel hidden">
+    <div id="quests-bar">
+      <button id="btn-add-quest">ADD QUEST</button>
+      <span class="hint">A VILLAGER ASKS FOR A RELIC FROM A DUNGEON OR MINE. THE REWARD CAN BE THE KEY TO A SEALED WAY.</span>
+    </div>
+    <table id="quests-table">
+      <thead><tr>
+        <th>NAME</th><th>RELIC</th><th>GIVER</th><th>WHERE IT LIES</th>
+        <th>GOLD</th><th>ITEM</th><th>KEY</th><th>&nbsp;</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </main>
+
+  <main id="panel-tiles" class="panel hidden">
+    <div id="tiles-bar">
+      <button id="btn-new-wall">NEW WALL TILE</button>
+      <button id="btn-new-floor">NEW GROUND TEXTURE</button>
+      <span class="hint">EDITS TO STOCK TILES REACH THE DUNGEON TOO</span>
+    </div>
+    <table id="tiles-table">
+      <thead><tr>
+        <th>PREVIEW</th><th>ID</th><th>NAME</th><th>HEIGHT</th><th>DOOR</th>
+        <th>GLOW</th><th>SHOP</th><th>PROP</th><th>&nbsp;</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </main>
+
+  <main id="panel-textures" class="panel hidden">
+    <div id="tex-grid"></div>
+  </main>
+
+  <div id="tex-editor" class="hidden">
+    <div id="tex-editor-box">
+      <header><span id="tex-editor-title">TEXTURE</span>
+        <span>
+          <button id="btn-tex-save">SAVE</button>
+          <button id="btn-tex-reset" class="danger">RESET</button>
+          <button id="btn-tex-close">CLOSE</button>
+        </span>
+      </header>
+      <div id="tex-editor-body">
+        <canvas id="texcanvas" width="512" height="512"></canvas>
+        <div id="tex-side">
+          <div id="tex-tools">
+            <button class="ttool active" data-ttool="pen">PEN</button>
+            <button class="ttool" data-ttool="fill">FILL</button>
+            <button class="ttool" data-ttool="pick">PICK</button>
+            SIZE <select id="tex-brush">
+              <option value="1">1</option><option value="2">2</option><option value="4">4</option>
+            </select>
+          </div>
+          <div id="tex-cur"></div>
+          <div id="tex-rgb">
+            R <input id="tex-r" type="number" min="0" max="255" value="200">
+            G <input id="tex-g" type="number" min="0" max="255" value="160">
+            B <input id="tex-b" type="number" min="0" max="255" value="60">
+          </div>
+          <label><input id="tex-post" type="checkbox" checked> POSTERIZE (DOS STEPS)</label>
+          <div id="tex-pal"></div>
+          <div class="hint">RIGHT-CLICK ON THE CANVAS PICKS A COLOR</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- the game's own content code: same tiles, same textures, same world -->
+<script src="js/engine/util.js"></script>
+<script src="js/engine/font.js"></script>
+<script src="js/game/tiles.js"></script>
+<script src="js/game/slabs.js"></script>
+<script src="js/game/textures.js"></script>
+<script src="js/game/items.js"></script>
+<script src="js/game/overworld.js"></script>
+<!-- the designer -->
+<script src="js/editor/estate.js"></script>
+<script src="js/editor/ezip.js"></script>
+<script src="js/editor/emap.js"></script>
+<script src="js/editor/equests.js"></script>
+<script src="js/editor/etiles.js"></script>
+<script src="js/editor/etex.js"></script>
+<script src="js/editor/emain.js"></script>
+</body>
+</html>

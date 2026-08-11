@@ -116,8 +116,8 @@ function drawHUD() {
 
   // depth, or the time of day while you are still under the sky
   const surface = p.floor === 0;
-  // the mine is beside the descent, not a depth on it
-  drawText(ctx, surface ? 'SURFACE' : p.floor === MINE_FLOOR ? 'THE MINE' : 'FLOOR ' + p.floor,
+  // a mine is beside any descent, not a depth on one
+  drawText(ctx, surface ? 'SURFACE' : G.level.isMine ? 'THE MINE' : 'FLOOR ' + p.floor,
     248, VIEW_H + 5, '#b8a890', 1);
   drawText(ctx, surface ? clockText(G.clock) + ' ' + dayPhase(G.clock) : 'BEST ' + G.best,
     248, VIEW_H + 19, '#6a6058', 1);
@@ -140,8 +140,12 @@ function useHint() {
   const p = G.player;
   const lvl = G.level;
   let hint = null;
-  const mine = mineMouthUnderFoot();
-  if (mine) {
+  const at = portalUnderFoot();
+  const mine = at ? null : mineMouthUnderFoot();
+  if (at) {
+    hint = portalSealed(at.portal) ? 'SEALED - A KEY IS NEEDED'
+      : 'E - ENTER ' + at.portal.name;
+  } else if (mine) {
     hint = 'E - ' + mine.text;
   } else {
   const stair = stairsUnderFoot();

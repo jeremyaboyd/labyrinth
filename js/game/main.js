@@ -47,8 +47,11 @@ const G = {
   stats: { kills: 0 },
   // cameFrom: which menu a sub-screen (options, help) was opened from
   menu: { items: [], ids: [], sel: 0, scroll: 0, slots: null, actions: [], actionSel: 0, actionSlot: 0, cameFrom: 'title' },
-  deepest: -1,    // deepest floor reached this run; anything at or above it is walked ground
-  floorNames: {}, // floor -> the name it was given, so the climb menu can list them
+  realm: null,    // portal id of the realm we are under, or null on the surface
+  portals: {},    // portal id -> its def, indexed when the surface is built
+  realms: {},     // portal id -> { deepest, names } for that descent
+  surfaceName: 'THE SURFACE',
+  surfaceWalked: false, // the surface stays fogged until you have been on it once
   shop: null,     // shop whose window is currently open
   flights: [],    // floors the stair menu is offering
   flightDir: 'up',// which way that menu is going
@@ -68,11 +71,31 @@ function addMsg(text) {
 }
 
 // ---------- floor / run management ----------
+// the running record of one realm's descent
+function realmState(id) {
+  if (!G.realms[id]) G.realms[id] = { deepest: 0, names: {} };
+  return G.realms[id];
+}
+
+// the portal index and designer quests come from the surface world; anything
+// that needs them before the surface has been built this run builds it here
+function ensureWorldIndex() {
+  if (Object.keys(G.portals).length) return;
+  indexWorld(buildOverworld());
+}
+
+function indexWorld(surfaceLvl) {
+  G.portals = {};
+  for (const p of surfaceLvl.portals || []) G.portals[p.id] = p;
+  G.surfaceName = surfaceLvl.name;
+  buildDesignerQuests(surfaceLvl.quests);
+}
+
 // The stairways are part of the ground: a black shaft with a ladder, cut into
 // the floor where the way down is, and into the ceiling where you came up.
-// The mine's ends are mouths in a cliff, not shafts, so it marks nothing.
+// A mine's ends are mouths in a cliff, not shafts, so it marks nothing.
 function markStairways(lvl) {
-  if (!lvl.slabs || lvl.floorNum === MINE_FLOOR) return;
+  if (!lvl.slabs || lvl.isMine) return;
   const stamp = (spot, ceiling, tex) => {
     if (!spot) return;
     const cell = lvl.slabs[spot.y * lvl.w + spot.x];
@@ -82,17 +105,42 @@ function markStairways(lvl) {
       if (ceiling && sl.bot && sl.z0 >= 1) { sl.bot = tex; return; }
     }
   };
-  // on the crown's floor the way deeper stays sealed until the crown is taken
-  if (!lvl.hasCrown || G.crownTaken) stamp(lvl.exit, false, T_HOLE_DOWN);
+  if (lvl.floorNum === 0) {
+    // on the surface, every dungeon portal is a shaft cut into its ground
+    for (const p of lvl.portals || []) {
+      if (p.kind === 'dungeon') stamp({ x: p.x, y: p.y }, false, T_HOLE_DOWN);
+    }
+    return;
+  }
+  // on the crown's floor the way deeper stays sealed until the crown is
+  // taken, and a finite dungeon's deepest floor simply has no way down
+  if ((!lvl.hasCrown || G.crownTaken) && !lvl.noDeeper) stamp(lvl.exit, false, T_HOLE_DOWN);
   if (lvl.floorNum > 0) stamp(lvl.start, true, T_HOLE_UP);
 }
 
-// arriveAt: 'start' (you came down, or the run begins) | 'exit' (you came back up)
-function loadFloor(n, arriveAt) {
-  // level 0 is the fixed surface; everything below it is rolled from the seed
-  const lvl = n === 0 ? buildOverworld()
-    : n === MINE_FLOOR ? buildMine((G.baseSeed ^ 0x5EEDCA7E) >>> 0)
-    : generateDungeon(n, (G.baseSeed + n * 7919) >>> 0);
+// arriveAt: 'start' (you came down, or the run begins) | 'exit' (you came
+// back up) | {x, y} (a spot on the floor being loaded, used for surfacing
+// out of a portal). realm names whose descent this is; on the surface it is
+// meaningless and cleared.
+function loadFloor(n, arriveAt, realm) {
+  realm = n === 0 ? null : (realm || G.realm || 'castle');
+  const portal = realm ? G.portals[realm] : null;
+  // level 0 is the fixed surface; everything below is rolled from its
+  // realm's seed
+  let lvl;
+  if (n === 0) {
+    lvl = buildOverworld();
+    indexWorld(lvl);
+  } else if (portal && portal.kind === 'mine') {
+    lvl = buildMine(realmSeed(realm, 1), portal.name);
+    lvl.isMine = true;
+  } else {
+    const floors = portal && portal.floors > 0 ? portal.floors : 0; // 0 = endless
+    lvl = generateDungeon(n, realmSeed(realm, n), {
+      crown: realm === 'castle' && n === CROWN_FLOOR,
+      last: floors > 0 && n >= floors,
+    });
+  }
   // the renderer draws stacks of slabs, not tiles: work out how tall each cell
   // stands and what its top and underside look like, once, here
   buildSlabs(lvl, lvl.outdoor
@@ -100,21 +148,28 @@ function loadFloor(n, arriveAt) {
     : { floorTex: lvl.floorTex || T_FLOOR, ceilTex: lvl.ceilTex || T_CEIL, rampTex: T_STONE });
   markStairways(lvl);
   G.level = lvl;
+  G.realm = realm;
   G.explored = new Uint8Array(lvl.w * lvl.h);
-  // ground you have already walked stays walked: no fog on a floor you finished.
-  // The mine is off to the side of the descent, so it is never "already done".
-  if (n >= 0 && n <= G.deepest) G.explored.fill(1);
-  if (n > G.deepest) G.deepest = n;
-  G.floorNames[n] = lvl.name;
+  // ground you have already walked stays walked: no fog on a floor you
+  // finished. A mine is off to the side of any descent, never "already done".
+  if (n === 0) {
+    if (G.surfaceWalked) G.explored.fill(1);
+    G.surfaceWalked = true;
+  } else if (!lvl.isMine) {
+    const rs = realmState(realm);
+    if (n <= rs.deepest) G.explored.fill(1);
+    if (n > rs.deepest) rs.deepest = n;
+    rs.names[n] = lvl.name;
+  }
   const p = G.player;
-  const spot = arriveAt === 'exit' ? lvl.exit
-    : arriveAt === 'mineA' ? (lvl.mineA || lvl.start)
-    : arriveAt === 'mineB' ? (lvl.mineB || lvl.start)
+  const spot = arriveAt && arriveAt.x != null ? arriveAt
+    : arriveAt === 'exit' ? lvl.exit
     : lvl.start;
   p.x = spot.x + 0.5;
   p.y = spot.y + 0.5;
   p.keys = 0;
   p.floor = n;
+  p.realm = realm;
   // the surface has a scripted opening view, but only when you start there
   if (arriveAt !== 'exit' && lvl.startAngle != null) {
     p.a = lvl.startAngle;
@@ -126,18 +181,23 @@ function loadFloor(n, arriveAt) {
   }
   G.enemies = lvl.spawns.map(s => makeEnemy(s.type, s.x, s.y));
   G.items = lvl.items.map(it => ({ ...it, bob: Math.random() * 10 }));
-  // keepsakes from fetch errands lie where they were lost until found
+  // after the floor's own loot is down, lay out any quest relic it owes
+  layQuestRelic(lvl, realm, n);
+  // keepsakes from fetch errands lie where they were lost until found;
+  // their floors are the surface or the castle descent, never other realms
   if (p.quests) {
     for (const qid in p.quests.log) {
       const def = questDef(p, qid), e = p.quests.log[qid];
-      if (def && def.kind === 'fetch' && !e.done && !e.carrying && def.item.floor === n) {
+      if (def && def.kind === 'fetch' && !e.done && !e.carrying && def.item.floor === n
+          && (n === 0 || realm === 'castle')) {
         G.items.push({ type: 'quest', qid, x: def.item.x + 0.5, y: def.item.y + 0.5, bob: Math.random() * 10 });
       }
     }
   }
   G.projectiles = [];
   G.npcs = (lvl.villagers || []).map((v, i) => makeVillager(v.x, v.y, i, v.role));
-  if (n > G.best) { G.best = n; localStorage.setItem('labyrinth.best', String(n)); }
+  // the high score is the crown's own descent, not a side delve
+  if (realm === 'castle' && n > G.best) { G.best = n; localStorage.setItem('labyrinth.best', String(n)); }
 }
 
 function makeEnemy(type, x, y) {
@@ -158,16 +218,17 @@ function newGame() {
   G.stats.kills = 0;
   G.activeSlot = null;
   G.clock = CLOCK_START;
-  G.deepest = -1;   // so the surface itself is not treated as already walked
-  G.floorNames = {};
+  G.realms = {};
+  G.realm = null;
+  G.surfaceWalked = false; // so the surface itself starts under fog
   loadFloor(0); // every run begins on the surface
   G.state = 'transition';
   G.transT = 0;
   G.messages = [];
 }
 
-function changeFloor(n, arriveAt) {
-  loadFloor(n, arriveAt);
+function changeFloor(n, arriveAt, realm) {
+  loadFloor(n, arriveAt, realm);
   if (G.activeSlot != null) {
     if (SaveSys.write(G.activeSlot)) addMsg('AUTOSAVED TO SLOT ' + (G.activeSlot + 1));
   }
@@ -314,11 +375,28 @@ function buildBillboards() {
     const fi = ((G.time * 9 + t.phase) | 0) % 3;
     out.push({ x: t.x, y: t.y, z: standZ(lvl, t.x, t.y), img: SPRITES.torch[fi], hFrac: 0.44, zOff: 0.38, glow: true });
   }
-  // the stairways are tiles now -- a hole with a ladder, laid by markStairways
-  // -- so the only markers left standing are the mine's timber frames
-  if (lvl.floorNum === MINE_FLOOR) {
+  // a mine's mouths keep their timber frames
+  if (lvl.isMine) {
     for (const spot of [lvl.start, lvl.exit]) {
       out.push({ x: spot.x + 0.5, y: spot.y + 0.5, z: 0, img: SPRITES.mineFrame[0], hFrac: 1.0, zOff: 0, glow: false });
+    }
+  }
+  // the shaft ladders stand in the holes markStairways cut: floor-to-ceiling
+  // into the hole overhead where you came down, and half a tile proud of the
+  // black circle where the way down is
+  const ladderAt = (spot, img, hFrac) => out.push({
+    x: spot.x + 0.5, y: spot.y + 0.5, z: standZ(lvl, spot.x + 0.5, spot.y + 0.5),
+    img, hFrac, zOff: 0, glow: false,
+  });
+  if (!lvl.isMine && lvl.floorNum > 0) {
+    ladderAt(lvl.start, SPRITES.ladderFull[0], 0.98);
+    if ((!lvl.hasCrown || G.crownTaken) && !lvl.noDeeper) {
+      ladderAt(lvl.exit, SPRITES.ladderHalf[0], 0.5);
+    }
+  }
+  if (lvl.floorNum === 0 && lvl.portals) {
+    for (const portal of lvl.portals) {
+      if (portal.kind === 'dungeon') ladderAt(portal, SPRITES.ladderHalf[0], 0.5);
     }
   }
   for (const it of G.items) {
@@ -331,6 +409,7 @@ function buildBillboards() {
     else if (it.type === 'gold') out.push({ x: it.x, y: it.y, img: SPRITES.gold[0], hFrac: 0.2, zOff: 0.01, glow: false });
     else if (it.type === 'key') out.push({ x: it.x, y: it.y, img: SPRITES.key[0], hFrac: 0.24, zOff: bobZ, glow: true });
     else if (it.type === 'quest') out.push({ x: it.x, y: it.y, img: SPRITES.trinket[0], hFrac: 0.24, zOff: bobZ, glow: true });
+    else if (it.type === 'relic') out.push({ x: it.x, y: it.y, img: SPRITES.trinket[0], hFrac: 0.28, zOff: 0.1 + bobZ, glow: true });
     else if (it.type === 'crown') out.push({ x: it.x, y: it.y, img: SPRITES.crown[((G.time * 3) | 0) % 2], hFrac: 0.3, zOff: 0.15 + bobZ, glow: true });
   }
   for (const e of G.enemies) {
@@ -640,6 +719,10 @@ function drawFrame(t) {
 // half-built canvas frozen on screen with no way to tell why.
 function boot() {
   generateTextures(0xDEADBEEF);
+  // the designer's work lands on top of the stock content: tile defs first,
+  // because the first level built below bakes heights into its slabs
+  CustomData.applyTiles();
+  CustomData.applyTextures();
   generateSprites();
   initSky();
   // backdrop level for the title screen

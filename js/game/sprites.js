@@ -79,6 +79,22 @@ function drawMineFrame(ctx, p) {
   for (const bx of [5, W - 7]) { p.px(bx, 12, '#3a2a18'); p.px(bx, 24, '#3a2a18'); }
 }
 
+// ---------------- shaft ladders ----------------
+// The way up runs from the floor into the hole in the ceiling; the way down
+// stands half a tile proud of the black shaft at your feet.
+function drawLadder(ctx, p, H) {
+  const W = 14;
+  for (const lx of [1, W - 4]) {
+    p.rect(lx, 0, 3, H, TIMBER);
+    p.rect(lx, 0, 1, H, TIMBER_L);      // lit edge
+    p.rect(lx + 2, 0, 1, H, TIMBER_D);  // shadowed edge
+  }
+  for (let y = 2; y < H - 2; y += 7) {
+    p.rect(1, y, W - 2, 2, TIMBER_L);
+    p.rect(1, y + 2, W - 2, 1, TIMBER_D);
+  }
+}
+
 // ---------------- enemies ----------------
 
 const BONE = '#d8d0c0', BONE_D = '#968d78', DARK = '#1a140f';
@@ -680,6 +696,8 @@ function generateSprites() {
   SPRITES.stairs = [makeSpriteFrame(32, 34, drawStairsDown)];
   SPRITES.stairsUp = [makeSpriteFrame(32, 34, drawStairsUp)];
   SPRITES.mineFrame = [makeSpriteFrame(32, 40, drawMineFrame)];
+  SPRITES.ladderFull = [makeSpriteFrame(14, 64, (c, p) => drawLadder(c, p, 64))];
+  SPRITES.ladderHalf = [makeSpriteFrame(14, 32, (c, p) => drawLadder(c, p, 32))];
   SPRITES.crown = [
     makeSpriteFrame(20, 16, (c, p) => drawCrown(c, p, 0)),
     makeSpriteFrame(20, 16, (c, p) => drawCrown(c, p, 1)),

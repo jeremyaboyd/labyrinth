@@ -9,7 +9,10 @@ function levelName(floorNum, rng) {
   return 'THE ' + pick(rng, adj) + ' ' + pick(rng, noun);
 }
 
-function generateDungeon(floorNum, seed) {
+// opts.crown: lay the crown on this floor (the castle realm's prize floor).
+// opts.last: this is a finite dungeon's deepest floor -- no way down from it.
+function generateDungeon(floorNum, seed, opts) {
+  opts = opts || { crown: floorNum === CROWN_FLOOR };
   const rng = makeRng(seed);
   const size = BALANCE.mapSize(floorNum);
   const w = size, h = size;
@@ -272,7 +275,7 @@ function generateDungeon(floorNum, seed) {
   const goldN = BALANCE.goldPiles(floorNum);
   for (let i = 0; i < goldN; i++) { const c = freeCell(3); if (c) items.push({ type: 'gold', x: c.x + 0.5, y: c.y + 0.5 }); }
   if (keyPos) items.push({ type: 'key', x: keyPos.x + 0.5, y: keyPos.y + 0.5 });
-  if (floorNum === CROWN_FLOOR) items.push({ type: 'crown', x: exit.x + 0.5, y: exit.y + 0.5 });
+  if (opts.crown) items.push({ type: 'crown', x: exit.x + 0.5, y: exit.y + 0.5 });
 
   // 12) torches: floor cells adjacent to a wall, offset toward the wall face
   const torches = [];
@@ -296,21 +299,34 @@ function generateDungeon(floorNum, seed) {
     tiles: TILE_DEFS,
     floorNum,
     name: levelName(floorNum, rng),
-    hasCrown: floorNum === CROWN_FLOOR,
+    hasCrown: !!opts.crown,
+    noDeeper: !!opts.last, // a finite dungeon simply ends; no stair down here
   };
 }
 
-// ---------- the mine ----------
-// One level, cut through the range between Kingshore and the vale. It is a
-// dungeon like any other -- a maze, its monsters, its loot -- but it is not
-// part of the descent, so it carries its own floor number and never appears
-// in the stairwell's list of floors.
-const MINE_FLOOR = -1;
+// ---------- realm seeds ----------
+// The castle keeps the formula it always had, and so does the Deepcut, so
+// old saves regenerate the very same floors. Every other realm hashes its
+// portal id into the run's seed and gets a descent of its own.
+function realmSeed(realmId, depth) {
+  if (realmId === 'castle') return (G.baseSeed + depth * 7919) >>> 0;
+  if (realmId === 'deepcut') return (G.baseSeed ^ 0x5EEDCA7E) >>> 0;
+  let h = 0x811C9DC5;
+  const s = String(realmId);
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return ((G.baseSeed ^ h) + depth * 7919) >>> 0;
+}
 
-function buildMine(seed) {
-  const lvl = generateDungeon(1, seed);
-  lvl.floorNum = MINE_FLOOR;
-  lvl.name = 'THE DEEPCUT MINE';
+// ---------- mines ----------
+// One level, cut through the rock between two mouths. A dungeon like any
+// other -- a maze, its monsters, its loot -- but it is not part of any
+// descent, so it never appears in a stairwell's list of floors.
+function buildMine(seed, name) {
+  const lvl = generateDungeon(1, seed, { crown: false, last: true });
+  lvl.name = name || 'THE DEEPCUT MINE';
   lvl.hasCrown = false;
 
   // A mine is cut, not built: the masonry the generator laid becomes packed

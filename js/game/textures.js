@@ -502,10 +502,10 @@ function generateMineTextures(rng) {
     }
   });
 
-  // ---- the stairways: a hole and a ladder, not a billboard ----
-  // A ring of laid slabs, the shaft black inside it, and the ladder's two
-  // rails with rungs crossing the dark. The same art both ways up: the floor
-  // one reads as the way down, the ceiling one as the shaft you climbed.
+  // ---- the stairways: a bare hole; the ladder itself is a billboard ----
+  // A ring of laid slabs and the shaft black inside it. The same art both
+  // ways up: the floor one reads as the way down, the ceiling one as the
+  // shaft overhead. The ladder stands in the world, not painted on the tile.
   const holeGen = (isCeiling) => (px) => {
     for (let y = 0; y < TEX_SIZE; y++) for (let x = 0; x < TEX_SIZE; x++) {
       // surround: worn stone, matching the dungeon floor's palette closely
@@ -522,24 +522,6 @@ function generateMineTextures(rng) {
       } else if (d < R + 3) {
         const s = 0.5 + (Math.sin((x + y) * 2.7) % 1) * 0.1;  // the laid rim
         texPut(px, x, y, 96 * s, 90 * s, 80 * s);
-      }
-    }
-    // the ladder, crossing the hole a little off centre
-    for (const rx of [C - 9, C + 7]) {
-      for (let y = 0; y < TEX_SIZE; y++) {
-        const d = Math.hypot(rx - C + 1, y - C + 0.5);
-        if (d >= R + 2) continue;
-        for (let w = 0; w < 3; w++) {
-          const s = w === 1 ? 1.0 : 0.7;
-          texPut(px, rx + w, y, 122 * s, 84 * s, 38 * s);
-        }
-      }
-    }
-    for (let ry = 6; ry < TEX_SIZE - 4; ry += 9) {
-      for (let x = C - 7; x < C + 8; x++) {
-        if (Math.hypot(x - C + 0.5, ry - C + 0.5) >= R + 1) continue;
-        texPut(px, x, ry, 100, 70, 32);
-        texPut(px, x, ry + 1, 70, 48, 22);
       }
     }
   };
