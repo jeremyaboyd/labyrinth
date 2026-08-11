@@ -59,6 +59,7 @@ const G = {
   fogOfWar: true,
   showFps: false,
   activeSlot: null, // save slot this run writes to (null until saved/loaded)
+  bootError: null,  // set if boot threw; the loop draws it instead of a frame
 };
 
 function addMsg(text) {
@@ -476,9 +477,30 @@ function frame(t) {
   // the raw frame gap, smoothed, so the readout does not flicker
   const raw = (t - lastT) / 1000;
   if (raw > 0) fpsAvg += (1 / raw - fpsAvg) * 0.08;
-  drawFrame(t);
+  try {
+    if (G.bootError) drawCrash(G.bootError);
+    else drawFrame(t);
+  } catch (err) {
+    drawCrash(err);
+  }
   // stamped over whatever the frame drew, so every screen carries it
   if (G.showFps) drawText(ctx, Math.round(fpsAvg), 3, 3, '#ffffff', 1);
+}
+
+// A phone has no console to open. Without this, one bad call leaves the last
+// good frame sitting on the canvas and the game reads as hung on whatever
+// screen happened to be up -- which is exactly how a missing Pointer Lock API
+// presented on iOS. Say what broke, on the screen, in the game's own font.
+function drawCrash(err) {
+  ctx.fillStyle = '#140808';
+  ctx.fillRect(0, 0, W, H);
+  drawText(ctx, 'THE LABYRINTH COLLAPSED', 8, 10, '#e05040', 1);
+  // the 5x7 font carries no lowercase, so shout it
+  const msg = String((err && err.message) || err).toUpperCase();
+  for (let i = 0, y = 28; i < msg.length && y < H - 10; i += 50, y += 9) {
+    drawText(ctx, msg.slice(i, i + 50), 8, y, '#c8a038', 1);
+  }
+  drawText(ctx, 'RELOAD TO TRY AGAIN', 8, H - 12, '#6a6058', 1);
 }
 
 function drawFrame(t) {
@@ -565,11 +587,21 @@ function drawFrame(t) {
 }
 
 // ---------- boot ----------
-generateTextures(0xDEADBEEF);
-generateSprites();
-initSky();
-// backdrop level for the title screen
-G.player = newPlayer();
-loadFloor(1);
-openTitleMenu();
+// The loop starts whatever happens. It used to be the last statement here, so
+// anything that threw above it took the renderer down with it and left a
+// half-built canvas frozen on screen with no way to tell why.
+function boot() {
+  generateTextures(0xDEADBEEF);
+  generateSprites();
+  initSky();
+  // backdrop level for the title screen
+  G.player = newPlayer();
+  loadFloor(1);
+  openTitleMenu();
+}
+try {
+  boot();
+} catch (err) {
+  G.bootError = err;
+}
 requestAnimationFrame(frame);
