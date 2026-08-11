@@ -312,5 +312,26 @@ function buildMine(seed) {
   lvl.floorNum = MINE_FLOOR;
   lvl.name = 'THE DEEPCUT MINE';
   lvl.hasCrown = false;
+
+  // A mine is cut, not built: the masonry the generator laid becomes packed
+  // earth, shored with timber at regular intervals along the galleries. Doors
+  // and shop windows keep their own art -- a jamb set into the dirt.
+  for (let y = 0; y < lvl.h; y++) {
+    for (let x = 0; x < lvl.w; x++) {
+      const i = y * lvl.w + x;
+      const c = lvl.map[i];
+      if (c !== T_STONE && c !== T_MOSS && c !== T_RUNE && c !== T_BANNER && c !== T_SKULL) continue;
+      // shore the wall wherever it faces open ground on a regular beat
+      let open = false;
+      for (const [dx, dy] of ADJ) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && ny >= 0 && nx < lvl.w && ny < lvl.h && lvl.map[ny * lvl.w + nx] === 0) { open = true; break; }
+      }
+      lvl.map[i] = open && (x + y) % 3 === 0 ? T_MINE_SUPPORT : T_DIRT;
+    }
+  }
+  // the ground is trodden earth and the roof is boards, not vaulted stone
+  lvl.floorTex = T_DIRT_FLOOR;
+  lvl.ceilTex = T_PLANK_CEIL;
   return lvl;
 }

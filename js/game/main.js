@@ -68,6 +68,25 @@ function addMsg(text) {
 }
 
 // ---------- floor / run management ----------
+// The stairways are part of the ground: a black shaft with a ladder, cut into
+// the floor where the way down is, and into the ceiling where you came up.
+// The mine's ends are mouths in a cliff, not shafts, so it marks nothing.
+function markStairways(lvl) {
+  if (!lvl.slabs || lvl.floorNum === MINE_FLOOR) return;
+  const stamp = (spot, ceiling, tex) => {
+    if (!spot) return;
+    const cell = lvl.slabs[spot.y * lvl.w + spot.x];
+    if (!cell) return;
+    for (const sl of cell) {
+      if (!ceiling && sl.top && !sl.ramp && sl.z1 <= 0) { sl.top = tex; return; }
+      if (ceiling && sl.bot && sl.z0 >= 1) { sl.bot = tex; return; }
+    }
+  };
+  // on the crown's floor the way deeper stays sealed until the crown is taken
+  if (!lvl.hasCrown || G.crownTaken) stamp(lvl.exit, false, T_HOLE_DOWN);
+  if (lvl.floorNum > 0) stamp(lvl.start, true, T_HOLE_UP);
+}
+
 // arriveAt: 'start' (you came down, or the run begins) | 'exit' (you came back up)
 function loadFloor(n, arriveAt) {
   // level 0 is the fixed surface; everything below it is rolled from the seed
@@ -78,7 +97,8 @@ function loadFloor(n, arriveAt) {
   // stands and what its top and underside look like, once, here
   buildSlabs(lvl, lvl.outdoor
     ? { floorTex: T_GRASS, ceilTex: 0, rampTex: T_CASTLE, lintelTex: T_MOUNTAIN }
-    : { floorTex: T_FLOOR, ceilTex: T_CEIL, rampTex: T_STONE });
+    : { floorTex: lvl.floorTex || T_FLOOR, ceilTex: lvl.ceilTex || T_CEIL, rampTex: T_STONE });
+  markStairways(lvl);
   G.level = lvl;
   G.explored = new Uint8Array(lvl.w * lvl.h);
   // ground you have already walked stays walked: no fog on a floor you finished.
@@ -294,11 +314,12 @@ function buildBillboards() {
     const fi = ((G.time * 9 + t.phase) | 0) % 3;
     out.push({ x: t.x, y: t.y, z: standZ(lvl, t.x, t.y), img: SPRITES.torch[fi], hFrac: 0.44, zOff: 0.38, glow: true });
   }
-  if (!lvl.hasCrown || G.crownTaken) {
-    out.push({ x: lvl.exit.x + 0.5, y: lvl.exit.y + 0.5, z: standZ(lvl, lvl.exit.x + 0.5, lvl.exit.y + 0.5), img: SPRITES.stairs[0], hFrac: 0.9, zOff: 0, glow: false });
-  }
-  if (lvl.floorNum > 0) { // the way back up; the surface has none
-    out.push({ x: lvl.start.x + 0.5, y: lvl.start.y + 0.5, img: SPRITES.stairsUp[0], hFrac: 0.9, zOff: 0, glow: false });
+  // the stairways are tiles now -- a hole with a ladder, laid by markStairways
+  // -- so the only markers left standing are the mine's timber frames
+  if (lvl.floorNum === MINE_FLOOR) {
+    for (const spot of [lvl.start, lvl.exit]) {
+      out.push({ x: spot.x + 0.5, y: spot.y + 0.5, z: 0, img: SPRITES.mineFrame[0], hFrac: 1.0, zOff: 0, glow: false });
+    }
   }
   for (const it of G.items) {
     const bobZ = 0.04 + Math.sin(it.bob) * 0.02;

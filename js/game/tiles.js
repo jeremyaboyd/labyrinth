@@ -22,6 +22,9 @@ const T_CASTLE = 24;
 const T_TREE = 25;     // blocks movement, drawn as a billboard
 const T_LAMP = 26;     // ditto: a lamp post
 const T_WATER = 27;    // blocks movement, but the ray sees the sea floor
+// the mine
+const T_DIRT = 28;         // packed-earth wall
+const T_MINE_SUPPORT = 29; // earth wall shored with timber
 // non-map texture keys
 const T_FLOOR = 100;
 const T_CEIL = 101;
@@ -30,6 +33,10 @@ const T_SAND = 103;
 const T_SEA = 104;
 const T_ROAD = 105;
 const T_COURT = 106;
+const T_DIRT_FLOOR = 107;  // trodden mine floor
+const T_PLANK_CEIL = 108;  // mine ceiling: boards over the earth
+const T_HOLE_DOWN = 109;   // floor tile: black hole with a ladder going down
+const T_HOLE_UP = 110;     // ceiling tile: the same hole, seen from below
 
 const SHOP_TILE = { potion: T_SHOP_POTION, weapon: T_SHOP_WEAPON, armor: T_SHOP_ARMOR };
 
@@ -45,6 +52,8 @@ const TILE_DEFS = {
   [T_SHOP_POTION]: { shop: 'potion' },
   [T_SHOP_WEAPON]: { shop: 'weapon' },
   [T_SHOP_ARMOR]: { shop: 'armor' },
+  [T_DIRT]: {},
+  [T_MINE_SUPPORT]: {},
   [T_MOUNTAIN]: {},
   [T_HOUSE]: {},
   [T_WINDOW]: { glow: false }, // the clock turns this on and off

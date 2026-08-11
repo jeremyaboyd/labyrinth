@@ -73,7 +73,9 @@ function drawHUD() {
 
   // depth, or the time of day while you are still under the sky
   const surface = p.floor === 0;
-  drawText(ctx, surface ? 'SURFACE' : 'FLOOR ' + p.floor, 248, VIEW_H + 5, '#b8a890', 1);
+  // the mine is beside the descent, not a depth on it
+  drawText(ctx, surface ? 'SURFACE' : p.floor === MINE_FLOOR ? 'THE MINE' : 'FLOOR ' + p.floor,
+    248, VIEW_H + 5, '#b8a890', 1);
   drawText(ctx, surface ? clockText(G.clock) + ' ' + dayPhase(G.clock) : 'BEST ' + G.best,
     248, VIEW_H + 19, '#6a6058', 1);
 

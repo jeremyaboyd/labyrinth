@@ -305,6 +305,7 @@ function updatePlay(dt) {
         fetchPickup(p, it.qid); // somebody's keepsake, carried, not packed
       } else if (it.type === 'crown') {
         G.crownTaken = true;
+        markStairways(G.level); // the way deeper opens in the floor
         questComplete(p, 'crown');
         G.state = 'win';
         SFX.victory(); // the delve carries on, so the mouse stays captured
