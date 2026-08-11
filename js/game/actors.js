@@ -122,6 +122,7 @@ function npcInFront() {
 // lands you squarely on it, and that would drop you straight through again.
 function stairsUnderFoot() {
   const p = G.player, lvl = G.level;
+  if (lvl.floorNum === MINE_FLOOR) return null;  // its ends are mine mouths
   if ((!lvl.hasCrown || G.crownTaken)
       && Math.hypot(lvl.exit.x + 0.5 - p.x, lvl.exit.y + 0.5 - p.y) < 0.6) return 'down';
   if (lvl.floorNum > 0
@@ -132,11 +133,35 @@ function stairsUnderFoot() {
 // either way, the stairwell asks how far you mean to go
 function takeStairs(dir) { openStairs(dir); }
 
+// The mine has a mouth at each end and no floors to choose between, so it is
+// the one crossing that just happens when you press E.
+function mineMouthUnderFoot() {
+  const p = G.player, lvl = G.level;
+  const on = (spot) => spot && Math.hypot(spot.x + 0.5 - p.x, spot.y + 0.5 - p.y) < 0.7;
+  if (lvl.floorNum === 0) {
+    if (on(lvl.mineA)) return { to: MINE_FLOOR, at: 'start', text: 'ENTER THE MINE' };
+    if (on(lvl.mineB)) return { to: MINE_FLOOR, at: 'exit', text: 'ENTER THE MINE' };
+  } else if (lvl.floorNum === MINE_FLOOR) {
+    if (on(lvl.start)) return { to: 0, at: 'mineA', text: 'OUT TO KINGSHORE' };
+    if (on(lvl.exit)) return { to: 0, at: 'mineB', text: 'OUT TO THE VALE' };
+  }
+  return null;
+}
+
 // E: take the stairs you are on, speak to whoever is there, else open the
 // door or shop window ahead
 function useFront() {
   const p = G.player;
   const lvl = G.level;
+
+  const mine = mineMouthUnderFoot();
+  if (mine) {
+    SFX.stairs();
+    G.state = 'transition';
+    G.transT = 0;
+    changeFloor(mine.to, mine.at);
+    return;
+  }
 
   const stair = stairsUnderFoot();
   if (stair) { takeStairs(stair); return; }

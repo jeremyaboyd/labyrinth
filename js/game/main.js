@@ -71,7 +71,9 @@ function addMsg(text) {
 // arriveAt: 'start' (you came down, or the run begins) | 'exit' (you came back up)
 function loadFloor(n, arriveAt) {
   // level 0 is the fixed surface; everything below it is rolled from the seed
-  const lvl = n === 0 ? buildOverworld() : generateDungeon(n, (G.baseSeed + n * 7919) >>> 0);
+  const lvl = n === 0 ? buildOverworld()
+    : n === MINE_FLOOR ? buildMine((G.baseSeed ^ 0x5EEDCA7E) >>> 0)
+    : generateDungeon(n, (G.baseSeed + n * 7919) >>> 0);
   // the renderer draws stacks of slabs, not tiles: work out how tall each cell
   // stands and what its top and underside look like, once, here
   buildSlabs(lvl, lvl.outdoor
@@ -79,12 +81,16 @@ function loadFloor(n, arriveAt) {
     : { floorTex: T_FLOOR, ceilTex: T_CEIL, rampTex: T_STONE });
   G.level = lvl;
   G.explored = new Uint8Array(lvl.w * lvl.h);
-  // ground you have already walked stays walked: no fog on a floor you finished
-  if (n <= G.deepest) G.explored.fill(1);
+  // ground you have already walked stays walked: no fog on a floor you finished.
+  // The mine is off to the side of the descent, so it is never "already done".
+  if (n >= 0 && n <= G.deepest) G.explored.fill(1);
   if (n > G.deepest) G.deepest = n;
   G.floorNames[n] = lvl.name;
   const p = G.player;
-  const spot = arriveAt === 'exit' ? lvl.exit : lvl.start;
+  const spot = arriveAt === 'exit' ? lvl.exit
+    : arriveAt === 'mineA' ? (lvl.mineA || lvl.start)
+    : arriveAt === 'mineB' ? (lvl.mineB || lvl.start)
+    : lvl.start;
   p.x = spot.x + 0.5;
   p.y = spot.y + 0.5;
   p.keys = 0;

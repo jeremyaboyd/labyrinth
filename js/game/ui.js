@@ -95,6 +95,10 @@ function useHint() {
   const p = G.player;
   const lvl = G.level;
   let hint = null;
+  const mine = mineMouthUnderFoot();
+  if (mine) {
+    hint = 'E - ' + mine.text;
+  } else {
   const stair = stairsUnderFoot();
   if (stair === 'down') {
     hint = 'E - DESCEND';
@@ -115,6 +119,7 @@ function useHint() {
         if (shop && (p.x | 0) === shop.fx && (p.y | 0) === shop.fy) hint = 'E - ' + SHOP_TITLE[shop.kind];
       }
     }
+  }
   }
   // sits above the shop plaque rather than across it
   if (hint) drawTextCentered(ctx, hint, W / 2, VIEW_H - 44, '#d0c090', 1);
@@ -147,7 +152,10 @@ function drawMessages() {
 
 function drawMinimap() {
   const lvl = G.level;
-  const scale = Math.max(3, Math.min(5, Math.floor(150 / lvl.w)));
+  // fit both ways: the surface is far wider than a dungeon floor, and a map
+  // scaled only to width used to run off the bottom of the view
+  const scale = Math.max(1, Math.min(5,
+    Math.floor((W - 24) / lvl.w), Math.floor((VIEW_H - 24) / lvl.h)));
   const mw = lvl.w * scale, mh = lvl.h * scale;
   const ox = (W - mw) >> 1, oy = ((VIEW_H - mh) >> 1);
   ctx.fillStyle = 'rgba(8,6,4,0.92)';

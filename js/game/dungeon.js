@@ -299,3 +299,18 @@ function generateDungeon(floorNum, seed) {
     hasCrown: floorNum === CROWN_FLOOR,
   };
 }
+
+// ---------- the mine ----------
+// One level, cut through the range between Kingshore and the vale. It is a
+// dungeon like any other -- a maze, its monsters, its loot -- but it is not
+// part of the descent, so it carries its own floor number and never appears
+// in the stairwell's list of floors.
+const MINE_FLOOR = -1;
+
+function buildMine(seed) {
+  const lvl = generateDungeon(1, seed);
+  lvl.floorNum = MINE_FLOOR;
+  lvl.name = 'THE DEEPCUT MINE';
+  lvl.hasCrown = false;
+  return lvl;
+}
