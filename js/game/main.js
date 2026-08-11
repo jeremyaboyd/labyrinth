@@ -640,6 +640,10 @@ function drawFrame(t) {
 // half-built canvas frozen on screen with no way to tell why.
 function boot() {
   generateTextures(0xDEADBEEF);
+  // the designer's work lands on top of the stock content: tile defs first,
+  // because the first level built below bakes heights into its slabs
+  CustomData.applyTiles();
+  CustomData.applyTextures();
   generateSprites();
   initSky();
   // backdrop level for the title screen

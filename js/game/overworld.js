@@ -149,8 +149,25 @@ const OW_VILLAGERS = [
 // he waits in the courtyard, between the gate and the stair down
 const OW_KING = [KS_X + 14, KS_Y + 13];
 
+// Everything buildOverworld needs, gathered as plain data. The stock world is
+// just the default value of this; the level designer exports a different one.
+function defaultWorldDef() {
+  return {
+    name: 'THE KINGSHORE',
+    rows: composeWorld(),
+    legend: OW_LEGEND,
+    ramps: OW_RAMPS,
+    start: { x: OW_START.x, y: OW_START.y, a: OW_START.a },
+    king: OW_KING,
+    villagers: OW_VILLAGERS,
+  };
+}
+
 function buildOverworld() {
-  const rows = composeWorld();
+  const custom = typeof CustomData !== 'undefined' ? CustomData.world() : null;
+  const def = custom || defaultWorldDef();
+  const rows = def.rows;
+  const legend = def.legend;
   const h = rows.length;
   const w = rows[0].length;
   // a miscounted row would corrupt the whole world; fail loudly instead
@@ -169,16 +186,19 @@ function buildOverworld() {
     const row = rows[y];
     for (let x = 0; x < w; x++) {
       const ch = row[x];
-      const def = OW_LEGEND[ch];
-      if (!def) throw new Error('unknown overworld glyph "' + ch + '" at ' + x + ',' + y);
+      const entry = legend[ch];
+      if (!entry) throw new Error('unknown overworld glyph "' + ch + '" at ' + x + ',' + y);
       const i = y * w + x;
-      map[i] = def[0];
-      floorMap[i] = def[1];
+      map[i] = entry[0];
+      floorMap[i] = entry[1];
+      // which prop a glyph plants comes from its tile, not from the glyph
+      // itself, so a designer's legend works the same as the stock one
+      const td = entry[0] ? TILE_DEFS[entry[0]] : null;
       if (ch === 'X') exit = { x, y };
       else if (ch === 'm') mineA = { x, y };
       else if (ch === 'n') mineB = { x, y };
-      else if (ch === 't') props.push({ type: 'tree', x: x + 0.5, y: y + 0.5, variant: (x * 7 + y * 13) % 2 });
-      else if (ch === 'L') props.push({ type: 'lamp', x: x + 0.5, y: y + 0.5, phase: (x * 3 + y * 5) % 10 });
+      else if (td && td.prop === 'tree') props.push({ type: 'tree', x: x + 0.5, y: y + 0.5, variant: (x * 7 + y * 13) % 2 });
+      else if (td && td.prop === 'lamp') props.push({ type: 'lamp', x: x + 0.5, y: y + 0.5, phase: (x * 3 + y * 5) % 10 });
     }
   }
   if (!exit) throw new Error('overworld has no dungeon entrance');
@@ -188,21 +208,21 @@ function buildOverworld() {
     doors: {},
     tiles: TILE_DEFS,
     mineA, mineB,
-    start: { x: OW_START.x, y: OW_START.y },
-    startAngle: OW_START.a,
+    start: { x: def.start.x, y: def.start.y },
+    startAngle: def.start.a != null ? def.start.a : 0,
     exit,
     spawns: [],
     items: [],
     torches: [],
     shops: [],
-    villagers: OW_VILLAGERS.map(([x, y]) => ({ x: x + 0.5, y: y + 0.5, role: 'villager' }))
-      .concat([{ x: OW_KING[0] + 0.5, y: OW_KING[1] + 0.5, role: 'king' }]),
+    villagers: (def.villagers || []).map(([x, y]) => ({ x: x + 0.5, y: y + 0.5, role: 'villager' }))
+      .concat(def.king ? [{ x: def.king[0] + 0.5, y: def.king[1] + 0.5, role: 'king' }] : []),
     floorNum: 0,
-    name: 'THE KINGSHORE',
+    name: def.name || 'THE OVERWORLD',
     hasCrown: false,
     outdoor: true,
   };
-  layRamps(lvl, OW_RAMPS, 0);
+  layRamps(lvl, def.ramps || [], 0);
   // roof over each mine mouth and the tile in front of it, so both ends of the
   // Deepcut read as tunnels driven into the rock
   lvl.lintels = new Uint8Array(w * h);

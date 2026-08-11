@@ -4,12 +4,13 @@
 // you ship, which is what evicts the old copy.
 'use strict';
 
-const VERSION = 'labyrinth-v4';
+const VERSION = 'labyrinth-v5';
 
 const SHELL = [
   './',
   'index.html',
   'style.css',
+  'custom-data.js',
   'manifest.webmanifest',
   'icons/icon-192.png',
   'icons/icon-512.png',
@@ -23,6 +24,7 @@ const SHELL = [
   'js/engine/input.js',
   'js/game/tiles.js',
   'js/game/slabs.js',
+  'js/game/custom.js',
   'js/game/config.js',
   'js/game/items.js',
   'js/game/shops.js',
@@ -40,6 +42,15 @@ const SHELL = [
   'js/game/menus.js',
   'js/game/main.js',
   'js/game/touch.js',
+  // the level designer, so an installed copy can design offline too
+  'editor.html',
+  'editor.css',
+  'js/editor/estate.js',
+  'js/editor/ezip.js',
+  'js/editor/emap.js',
+  'js/editor/etiles.js',
+  'js/editor/etex.js',
+  'js/editor/emain.js',
 ];
 
 self.addEventListener('install', (e) => {
