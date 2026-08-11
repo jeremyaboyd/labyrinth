@@ -300,8 +300,14 @@ function renderView(view, lvl, cam, billboards, opts) {
 
             const relA = camZ - (A + B * dA);
             const relB = camZ - (A + B * dB);
-            // a top is only seen from above it, an underside only from below
-            if (f === 0 ? (relA <= 0 && relB <= 0) : (relA >= 0 && relB >= 0)) continue;
+            // A top is seen from above it, an underside from below -- but for a
+            // slope "above" is a half-space, not a height comparison. Looking up
+            // a ramp, most of it stands higher than the eye and is still its top
+            // face you are looking at, so the test is against the plane where
+            // the camera stands (d = 0) and not against either end of the cell.
+            // Flat ground has B = 0, where this is the old height test exactly.
+            const above = camZ - A;
+            if (f === 0 ? above <= 0 : above >= 0) continue;
             const yNear = horizon + relA * invA;
             const yFar = horizon + relB * invB;
             let y0, y1;
