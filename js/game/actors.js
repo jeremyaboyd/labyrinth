@@ -4,6 +4,7 @@
 function newPlayer() {
   const p = {
     x: 0, y: 0, a: 0,
+    z: 0, vz: 0,      // feet height, and the fall in progress
     hp: 100, maxHp: 100,
     mp: START_KIT.mp, maxMp: START_KIT.mp,
     gold: 0, keys: 0, floor: 1,
@@ -208,6 +209,8 @@ function updatePlay(dt) {
     p.stepAcc += dt * (run ? 11 : 8);
     if (p.stepAcc > Math.PI) { p.stepAcc -= Math.PI; SFX.step(); }
   }
+  // ground follows you: up a ramp, down off a ledge
+  settleZ(lvl, p, dt);
 
   // attack timeline
   if (p.atkCd > 0) p.atkCd -= dt;
@@ -323,6 +326,7 @@ function updateVillagers(dt) {
     if (v.idle) { v.moving = false; continue; }
     const ox = v.x, oy = v.y;
     tryMove(lvl, v, Math.cos(v.dir) * 0.85 * dt, Math.sin(v.dir) * 0.85 * dt, 0.28);
+    settleZ(lvl, v, dt);
     v.moving = Math.abs(v.x - ox) + Math.abs(v.y - oy) > 0.0005;
     if (!v.moving) v.dirT = 0; // walked into a wall, try somewhere else
     else v.walkPhase += dt * 5;
@@ -365,6 +369,7 @@ function updateEnemies(dt) {
         if (e.dirT <= 0) { e.dir = Math.random() * Math.PI * 2; e.dirT = 1.5 + Math.random() * 2.5; }
         const ox = e.x, oy = e.y;
         tryMove(lvl, e, Math.cos(e.dir) * st.speed * 0.25 * dt, Math.sin(e.dir) * st.speed * 0.25 * dt, 0.28);
+        settleZ(lvl, e, dt);
         if (Math.abs(e.x - ox) + Math.abs(e.y - oy) < 0.001) e.dirT = 0;
         e.walkPhase += dt * 3;
         continue;
@@ -409,6 +414,7 @@ function updateEnemies(dt) {
       const vl = Math.hypot(vx, vy) || 1;
       const beforeX = e.x, beforeY = e.y;
       tryMove(lvl, e, (vx / vl) * st.speed * dt, (vy / vl) * st.speed * dt, 0.28);
+      settleZ(lvl, e, dt);
       if (Math.abs(e.x - beforeX) + Math.abs(e.y - beforeY) < st.speed * dt * 0.2) {
         // stuck: pick a perpendicular escape direction
         e.dir += (Math.random() < 0.5 ? 1 : -1) * (Math.PI / 2) + (Math.random() - 0.5);

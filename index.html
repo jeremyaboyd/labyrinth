@@ -54,9 +54,18 @@
 // installable and playable offline. Registered last and guarded, so a browser
 // without service workers -- or a file:// open -- just runs the game as before.
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
+  // ?nosw=1 takes the worker out of the way and clears what it cached. The
+  // shell is cached hard, which is right for a game you install and wrong for
+  // one you are editing: without this a code change can stay invisible
+  // through any number of reloads.
+  if (/[?&]nosw=1/.test(location.search)) {
+    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister()));
+    if (window.caches) caches.keys().then(ks => ks.forEach(k => caches.delete(k)));
+  } else {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
 }
 </script>
 </body>

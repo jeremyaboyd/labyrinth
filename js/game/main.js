@@ -252,6 +252,13 @@ function loadFromSlot(slot) {
 }
 
 // ---------- world rendering assembly ----------
+// the ground a sprite stands on, so nothing floats over a ledge or sinks
+// into a ramp
+function standZ(lvl, x, y) {
+  const g = groundUnder(lvl, x, y, 8);
+  return g === null ? 0 : g;
+}
+
 function buildBillboards() {
   const lvl = G.level;
   const out = [];
@@ -259,24 +266,24 @@ function buildBillboards() {
     const lit = lampsLit(G.clock);
     for (const pr of lvl.props) {
       if (pr.type === 'tree') {
-        out.push({ x: pr.x, y: pr.y, img: SPRITES.tree[pr.variant], hFrac: 1.9, zOff: 0, glow: false });
+        out.push({ x: pr.x, y: pr.y, z: standZ(lvl, pr.x, pr.y), img: SPRITES.tree[pr.variant], hFrac: 1.9, zOff: 0, glow: false });
       } else {
         const img = lit ? SPRITES.lampOn[((G.time * 9 + pr.phase) | 0) % 3] : SPRITES.lampOff[0];
-        out.push({ x: pr.x, y: pr.y, img, hFrac: 1.35, zOff: 0, glow: lit });
+        out.push({ x: pr.x, y: pr.y, z: standZ(lvl, pr.x, pr.y), img, hFrac: 1.35, zOff: 0, glow: lit });
       }
     }
   }
   for (const v of G.npcs) {
     const frames = v.role === 'king' ? SPRITES.king : SPRITES['villager' + v.kind];
     const fi = v.moving ? ((v.walkPhase | 0) % 2 + 2) % 2 : 2;
-    out.push({ x: v.x, y: v.y, img: frames[fi], hFrac: 0.8, zOff: 0, glow: false });
+    out.push({ x: v.x, y: v.y, z: v.z || 0, img: frames[fi], hFrac: 0.8, zOff: 0, glow: false });
   }
   for (const t of lvl.torches) {
     const fi = ((G.time * 9 + t.phase) | 0) % 3;
-    out.push({ x: t.x, y: t.y, img: SPRITES.torch[fi], hFrac: 0.44, zOff: 0.38, glow: true });
+    out.push({ x: t.x, y: t.y, z: standZ(lvl, t.x, t.y), img: SPRITES.torch[fi], hFrac: 0.44, zOff: 0.38, glow: true });
   }
   if (!lvl.hasCrown || G.crownTaken) {
-    out.push({ x: lvl.exit.x + 0.5, y: lvl.exit.y + 0.5, img: SPRITES.stairs[0], hFrac: 0.9, zOff: 0, glow: false });
+    out.push({ x: lvl.exit.x + 0.5, y: lvl.exit.y + 0.5, z: standZ(lvl, lvl.exit.x + 0.5, lvl.exit.y + 0.5), img: SPRITES.stairs[0], hFrac: 0.9, zOff: 0, glow: false });
   }
   if (lvl.floorNum > 0) { // the way back up; the surface has none
     out.push({ x: lvl.start.x + 0.5, y: lvl.start.y + 0.5, img: SPRITES.stairsUp[0], hFrac: 0.9, zOff: 0, glow: false });
@@ -308,7 +315,8 @@ function buildBillboards() {
   return out;
 }
 
-function renderWorldView(camX, camY, camA, bob) {
+// camZ is the eye, which is half a tile over whatever the feet stand on
+function renderWorldView(camX, camY, camA, bob, camZ) {
   const lvl = G.level;
   const opts = {
     textures: Textures, texSize: TEX_SIZE,
@@ -325,7 +333,8 @@ function renderWorldView(camX, camY, camA, bob) {
     opts.floorTex = T_GRASS;     // only used if a cell has no floorMap entry
     opts.borderTex = T_MOUNTAIN;
   }
-  renderView(view, lvl, { x: camX, y: camY, a: camA, bob }, buildBillboards(), opts);
+  renderView(view, lvl, { x: camX, y: camY, z: (camZ || 0) + 0.5, a: camA, bob },
+    buildBillboards(), opts);
 }
 
 // ---------- input wiring ----------
@@ -547,7 +556,7 @@ function drawFrame(t) {
   // render 3D view (also as backdrop for pause/dead/win)
   const p = G.player;
   const bobY = p.moving ? Math.sin(p.bobPhase * 2) * 1.6 : 0;
-  renderWorldView(p.x, p.y, p.a, bobY);
+  renderWorldView(p.x, p.y, p.a, bobY, p.z);
   let sx = 0, sy = 0;
   if (G.shakeT > 0) {
     sx = ((Math.random() * 5) | 0) - 2;
