@@ -240,7 +240,14 @@ the surface world only — the floors below are always rolled from the seed.
   assets); text uses a hand-built 5×7 bitmap font. The only images in the
   repo are the home-screen icons, which a browser cannot ask a canvas for.
 - All sound is synthesized live with WebAudio (no audio assets): sword, doors,
-  pickups, monster voices, and a slow minor-key ambient drone.
+  pickups, monster voices — and music that knows where you are. The overworld
+  sings a bright major-pentatonic melody over a walking bass (gentler after
+  dark), the labyrinth lays a beating-sine unease and a heartbeat that
+  quickens with every floor you sink, mines creak to themselves, and the
+  title keeps the old minor drone. On top of it the world mutters at random:
+  birdsong, gulls and crickets under the sky; drips, chains, whispers and
+  worse below, with the voices growing more frequent the deeper you go.
+  Footsteps sound like the ground underfoot — grass, packed dirt, or stone.
 - Mazes come from a recursive-backtracker with rooms carved on top for loops
   and combat spaces; key/lock placement is validated with BFS reachability.
 - The code is split into an engine layer (`js/engine/`: raycaster, grid

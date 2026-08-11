@@ -44,6 +44,9 @@ const G = {
   titleAngle: 0,
   crownTaken: false,
   best: parseInt(localStorage.getItem('labyrinth.best') || '0', 10),
+  // volume sliders, 0..10; settings, so they live beside the high score
+  volMusic: parseInt(localStorage.getItem('labyrinth.vol.music') || '7', 10),
+  volSfx: parseInt(localStorage.getItem('labyrinth.vol.sfx') || '6', 10),
   stats: { kills: 0 },
   // cameFrom: which menu a sub-screen (options, help) was opened from
   menu: { items: [], ids: [], sel: 0, scroll: 0, slots: null, actions: [], actionSel: 0, actionSlot: 0, cameFrom: 'title' },
@@ -52,6 +55,7 @@ const G = {
   realms: {},     // portal id -> { deepest, names } for that descent
   surfaceName: 'THE SURFACE',
   surfaceWalked: false, // the surface stays fogged until you have been on it once
+  ambientT: 5,    // seconds until the world's next ambient mutter
   shop: null,     // shop whose window is currently open
   flights: [],    // floors the stair menu is offering
   flightDir: 'up',// which way that menu is going
@@ -259,9 +263,15 @@ function openPauseMenu() {
 }
 
 // ---------- options ----------
+function volBar(n) {
+  return '+'.repeat(n) + '-'.repeat(10 - n);
+}
+
 function optionsLabels() {
   return [
     'SOUND: ' + (Synth.enabled ? 'ON' : 'OFF'),
+    'MUSIC  <' + volBar(G.volMusic) + '>',
+    'SFX    <' + volBar(G.volSfx) + '>',
     'FOG OF WAR: ' + (G.fogOfWar ? 'ON' : 'OFF'),
     'SHOW FPS: ' + (G.showFps ? 'ON' : 'OFF'),
     'BACK',
@@ -269,11 +279,25 @@ function optionsLabels() {
 }
 
 function openOptions(from) {
-  G.menu.ids = ['sound', 'fog', 'fps', 'back'];
+  G.menu.ids = ['sound', 'musicvol', 'sfxvol', 'fog', 'fps', 'back'];
   G.menu.items = optionsLabels();
   G.menu.sel = 0;
   G.menu.cameFrom = from;
   G.state = 'options';
+}
+
+// nudge a volume row and let the player hear where it landed
+function adjustVolume(id, dir) {
+  if (id === 'musicvol') {
+    G.volMusic = clamp(G.volMusic + dir, 0, 10);
+    localStorage.setItem('labyrinth.vol.music', String(G.volMusic));
+  } else {
+    G.volSfx = clamp(G.volSfx + dir, 0, 10);
+    localStorage.setItem('labyrinth.vol.sfx', String(G.volSfx));
+  }
+  Synth.setVolumes(G.volMusic / 10, G.volSfx / 10);
+  G.menu.items = optionsLabels();
+  if (id === 'musicvol') Synth.musicBlip(); else SFX.menuSelect();
 }
 
 // backing out of a sub-screen lands on the row that opened it
@@ -466,6 +490,15 @@ function handlePress(code) {
     if (code === 'ArrowDown' || code === 'KeyS') { menuMove(1); return; }
   }
 
+  // the volume rows slide sideways
+  if (G.state === 'options' && (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'KeyA' || code === 'KeyD')) {
+    const id = G.menu.ids[G.menu.sel];
+    if (id === 'musicvol' || id === 'sfxvol') {
+      adjustVolume(id, (code === 'ArrowLeft' || code === 'KeyA') ? -1 : 1);
+      return;
+    }
+  }
+
   // quick items double as number keys
   if (G.state === 'hotlist' && code.startsWith('Digit')) {
     const n = parseInt(code.slice(5), 10);
@@ -507,6 +540,11 @@ function handlePress(code) {
       if (id === 'sound') {
         Synth.toggle();
         G.menu.items = optionsLabels(); // the label itself is the confirmation
+      } else if (id === 'musicvol' || id === 'sfxvol') {
+        // confirm steps the slider up, wrapping to silent past the top, so
+        // it works from a pad with no left/right in menus
+        const cur = id === 'musicvol' ? G.volMusic : G.volSfx;
+        adjustVolume(id, cur >= 10 ? -10 : 1);
       } else if (id === 'fog') {
         G.fogOfWar = !G.fogOfWar;
         G.menu.items = optionsLabels();
@@ -718,6 +756,8 @@ function drawFrame(t) {
 // anything that threw above it took the renderer down with it and left a
 // half-built canvas frozen on screen with no way to tell why.
 function boot() {
+  // the sliders' saved positions, held by Synth until the context exists
+  Synth.setVolumes(G.volMusic / 10, G.volSfx / 10);
   generateTextures(0xDEADBEEF);
   // the designer's work lands on top of the stock content: tile defs first,
   // because the first level built below bakes heights into its slabs

@@ -442,9 +442,9 @@ function drawPause() {
 // same box as the slot picker, so the two feel like siblings
 function drawOptions() {
   drawVignetteOverlay('#000000', 0.6);
-  drawPanel(30, 40, W - 60, 92);
-  drawTextCentered(ctx, 'OPTIONS', W / 2, 50, '#c8a038', 1);
-  // four rows have to clear the footer inside the same box
-  drawMenuItems(G.menu.items, G.menu.sel, 64, 13);
-  drawTextCentered(ctx, controlText('ENTER/E TOGGLE   TAB BACK'), W / 2, 120, '#544c40', 1);
+  drawPanel(30, 22, W - 60, 124);
+  drawTextCentered(ctx, 'OPTIONS', W / 2, 32, '#c8a038', 1);
+  // six rows have to clear the footer inside the same box
+  drawMenuItems(G.menu.items, G.menu.sel, 46, 13);
+  drawTextCentered(ctx, controlText('ENTER/E TOGGLE   < > SLIDE   TAB BACK'), W / 2, 134, '#544c40', 1);
 }
