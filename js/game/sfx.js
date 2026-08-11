@@ -127,32 +127,51 @@ function overworldBar(t, night) {
 }
 
 // ---- the labyrinth: a tension that keeps pace with your depth ----
+// A minor with a phrygian shadow. The flat second and the tritone join the
+// pool as you sink, so the deep does not just play quieter dread -- it plays
+// wronger notes.
+const DG_CALM = [220, 261.6, 293.7, 329.6];        // A C D E
+const DG_DREAD = [233.1, 311.1, 349.2, 415.3];     // Bb Eb F Ab
+
 function dungeonBar(t, depth) {
   const menace = clamp(depth / 8, 0.1, 1); // floor 8 is full dread
-  // the old alternating root, a little lower and darker
-  const root = (musicBarCount % 4 < 2) ? 55 : 41.2; // A1 / E1
-  mnote('triangle', root, t, 3.9, 0.45, 'pad');
-  // a pair of sines a couple of hertz apart: the beating is the unease
-  mnote('sine', 110, t, 3.9, 0.1 + menace * 0.1, 'pad');
-  mnote('sine', 110 + 1.5 + menace * 2, t, 3.9, 0.1 + menace * 0.1, 'pad');
-  // a heartbeat that quickens as you sink: two low thumps per period
+  // the root and its octave: the octave is what small speakers actually hear
+  const low = (musicBarCount % 4 < 2) ? 55 : 41.2; // A1 / E1
+  mnote('triangle', low, t, 3.9, 0.4, 'pad');
+  mnote('triangle', low * 2, t, 3.9, 0.3, 'pad');
+  // a pair a couple of hertz apart: the beating is the unease
+  mnote('sine', 220, t, 3.9, 0.07 + menace * 0.08, 'pad');
+  mnote('sine', 220 + 1.5 + menace * 2.5, t, 3.9, 0.07 + menace * 0.08, 'pad');
+  // a heartbeat that quickens as you sink; square for the audible knock
   const beats = 1 + Math.round(menace * 3);
   for (let i = 0; i < beats; i++) {
     const bt = t + i * (4 / beats);
-    mnote('sine', 55, bt, 0.16, 0.4);
-    mnote('sine', 49, bt + 0.22, 0.14, 0.28);
+    mnote('square', 82, bt, 0.1, 0.16);
+    mnote('sine', 55, bt, 0.18, 0.4);
+    mnote('square', 73, bt + 0.24, 0.09, 0.11);
+    mnote('sine', 49, bt + 0.24, 0.16, 0.28);
+  }
+  // the motif: four slow notes every bar, drawn more from the dread pool
+  // the deeper you stand. This is the part you hear as music.
+  for (let i = 0; i < 4; i++) {
+    if (i > 0 && Math.random() < 0.18) continue; // a held breath
+    const pool = Math.random() < 0.25 + menace * 0.45 ? DG_DREAD : DG_CALM;
+    const f = pool[(Math.random() * pool.length) | 0];
+    mnote('triangle', f, t + i * 1.0 + 0.1, 1.3, 0.3);
+    if (Math.random() < menace * 0.5) mnote('sine', f * 2, t + i * 1.0 + 0.1, 1.0, 0.08);
   }
   // sparse high bells, minor and -- deeper down -- tritone-sour
   if (Math.random() < 0.5) {
     const sour = Math.random() < menace;
-    const f = sour ? root * 8 * 1.414 : root * 8 * 1.189; // tritone : minor third
-    mnote('sine', f, t + 1 + Math.random() * 2, 1.6, 0.14 + menace * 0.08);
+    const f = sour ? 440 * 1.414 : 440 * 1.189; // tritone : minor third off A
+    mnote('sine', f, t + 1 + Math.random() * 2, 1.6, 0.16 + menace * 0.08);
   }
 }
 
 // ---- a mine: timber settling in the dark, barely music at all ----
 function mineBar(t) {
-  mnote('triangle', 41.2, t, 3.9, 0.4, 'pad'); // E1, the rock itself
+  mnote('triangle', 41.2, t, 3.9, 0.4, 'pad');  // E1, the rock itself
+  mnote('triangle', 82.4, t, 3.9, 0.22, 'pad'); // and the octave you can hear
   // a slow creak: a saw bending downward through a semitone
   if (Math.random() < 0.6) {
     const ac = Synth.ctx;
@@ -168,7 +187,11 @@ function mineBar(t) {
     o.start(at); o.stop(at + 1.5);
   }
   // one hollow knock, somewhere off in the galleries
-  if (Math.random() < 0.4) mnote('sine', 82, t + 1 + Math.random() * 2.5, 0.3, 0.2);
+  if (Math.random() < 0.4) {
+    const kt = t + 1 + Math.random() * 2.5;
+    mnote('square', 165, kt, 0.08, 0.1);
+    mnote('sine', 82, kt, 0.3, 0.24);
+  }
 }
 
 function musicBar() {
