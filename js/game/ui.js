@@ -1,6 +1,49 @@
 // ---- game/ui: weapon overlay, HUD, minimap, messages, state screens ----
 'use strict';
 
+// ---------- naming the control you actually have ----------
+// Every prompt in the game names a key. With the touch pads up the player has
+// no keyboard, so the prompt has to name the button under their thumb instead.
+// Longest phrases first, so ENTER OR E resolves to one button and not two.
+const PAD_KEYS = [
+  ['MOUSE, ARROWS', '< >'],
+  ['WASD/ARROWS', 'D-PAD'],
+  ['SPACE, CLICK', 'B'],
+  ['ENTER OR E', 'A'],
+  ['W A S D', 'D-PAD'],
+  ['ENTER/E', 'A'],
+  ['ENTER, E', 'A'],
+  ['SPACE', 'B'],
+  ['ENTER', 'A'],
+  ['SHIFT', '-'],
+  ['TAB', ''],   // decided by state below: B backs out, MENU pauses
+  ['E', 'A'],
+  ['I', 'L1'],
+  ['Q', 'L2'],
+  ['J', 'Y'],
+  ['M', 'X'],
+];
+
+// mirrors buttonCode() in touch.js: B attacks in play and backs out everywhere
+// else, so TAB is the MENU pill only while playing
+function padFor(key) {
+  if (key === 'TAB') return G.state === 'play' ? 'MENU' : 'B';
+  for (const [k, v] of PAD_KEYS) if (k === key) return v;
+  return key;
+}
+
+const PAD_RE = PAD_KEYS.map(([k]) => [k, new RegExp('\\b' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g')]);
+
+// rewrite a prompt for whichever controls are on screen. Only ever called on
+// prompt text, never on names or item labels, so a one-letter token cannot
+// eat part of a word that belongs to the world.
+function controlText(text) {
+  if (!(window.TouchUI && TouchUI.active)) return text;
+  let out = text;
+  for (const [k, re] of PAD_RE) out = out.replace(re, () => padFor(k));
+  return out;
+}
+
 function drawWeapon() {
   const p = G.player;
   const w = weaponDef(p);
@@ -117,7 +160,7 @@ function useHint() {
     }
   }
   // sits above the shop plaque rather than across it
-  if (hint) drawTextCentered(ctx, hint, W / 2, VIEW_H - 44, '#d0c090', 1);
+  if (hint) drawTextCentered(ctx, controlText(hint), W / 2, VIEW_H - 44, '#d0c090', 1);
 }
 
 // the quest you are tracking, top right of the view
@@ -267,7 +310,7 @@ function drawSlotMenu(title, slots, sel) {
     if (i === sel) drawTextCentered(ctx, '> ' + label + ' <', W / 2, y, '#ffe080', 1);
     else drawTextCentered(ctx, label, W / 2, y, d ? '#8a8078' : '#4a4238', 1);
   });
-  drawTextCentered(ctx, 'ENTER/E SELECT   TAB BACK', W / 2, 118, '#544c40', 1);
+  drawTextCentered(ctx, controlText('ENTER/E SELECT   TAB BACK'), W / 2, 118, '#544c40', 1);
 }
 
 // rotating dungeon backdrop + logo, shared by title and load screens
@@ -298,23 +341,26 @@ function drawTitle() {
   // no story spoilers here: where the crown lies is the first quest's to tell
   drawMenuItems(G.menu.items, G.menu.sel, 96, 13);
 
-  drawTextCentered(ctx, 'WASD/ARROWS SELECT   ENTER/E CONFIRM', W / 2, VIEW_H + 8, '#544c40', 1);
+  drawTextCentered(ctx, controlText('WASD/ARROWS SELECT   ENTER/E CONFIRM'), W / 2, VIEW_H + 8, '#544c40', 1);
   if (G.best > 1) drawTextCentered(ctx, 'DEEPEST DELVE: FLOOR ' + G.best, W / 2, VIEW_H + 24, '#6a6058', 1);
 }
 
 // every binding in one place, so the HUD does not have to carry a cheat sheet
+// keyboard label, pad label, what it does. The pad column is spelled out
+// rather than run through controlText(), because a couple of rows do not map one
+// to one: turning is a rocker, and running has no button to give it.
 const HELP_ROWS = [
-  ['W A S D', 'MOVE AND STRAFE'],
-  ['MOUSE, ARROWS', 'TURN'],
-  ['SHIFT', 'RUN'],
-  ['SPACE, CLICK', 'ATTACK'],
-  ['E', 'OPEN, TALK, TAKE STAIRS'],
-  ['I', 'YOUR PACK'],
-  ['Q', 'QUICK ITEMS'],
-  ['J', 'JOURNAL'],
-  ['M', 'MAP'],
-  ['TAB', 'MENU, AND BACK OUT'],
-  ['ENTER, E', 'CONFIRM IN MENUS'],
+  ['W A S D', 'D-PAD', 'MOVE AND STRAFE'],
+  ['MOUSE, ARROWS', '< > ROCKER', 'TURN'],
+  ['SHIFT', 'NONE', 'RUN'],
+  ['SPACE, CLICK', 'B', 'ATTACK'],
+  ['E', 'A', 'OPEN, TALK, TAKE STAIRS'],
+  ['I', 'L1', 'YOUR PACK'],
+  ['Q', 'L2', 'QUICK ITEMS'],
+  ['J', 'Y', 'JOURNAL'],
+  ['M', 'X', 'MAP'],
+  ['TAB', 'MENU / B', 'MENU, AND BACK OUT'],
+  ['ENTER, E', 'A', 'CONFIRM IN MENUS'],
 ];
 
 function drawHelp() {
@@ -326,12 +372,15 @@ function drawHelp() {
   // keys right-aligned into a column so the two halves read as a table
   ctx.fillStyle = '#2e281f';
   ctx.fillRect(132, 22, 1, HELP_ROWS.length * 11);
-  HELP_ROWS.forEach(([keyLabel, what], i) => {
+  // only the column for the controls in front of you: a phone has no keyboard
+  // to be told about, and a desktop has no pad
+  const pad = !!(window.TouchUI && TouchUI.active);
+  HELP_ROWS.forEach((row, i) => {
     const y = 24 + i * 11;
-    drawRight(keyLabel, 128, y, '#c8a038');
-    drawText(ctx, what, 138, y, '#b8ac98', 1);
+    drawRight(pad ? row[1] : row[0], 128, y, '#c8a038');
+    drawText(ctx, row[2], 138, y, '#b8ac98', 1);
   });
-  drawTextCentered(ctx, 'TAB BACK', W / 2, VIEW_H - 15, '#544c40', 1);
+  drawTextCentered(ctx, controlText('TAB BACK'), W / 2, VIEW_H - 15, '#544c40', 1);
 }
 
 function drawTransition() {
@@ -355,7 +404,7 @@ function drawDead() {
   drawTextCentered(ctx, 'YOU HAVE PERISHED', W / 2, 48, '#e03020', 2);
   drawTextCentered(ctx, 'FLOOR ' + G.player.floor + '   GOLD ' + G.player.gold + '   KILLS ' + G.stats.kills, W / 2, 80, '#c0b090', 1);
   drawTextCentered(ctx, 'THE LABYRINTH KEEPS ITS SECRETS.', W / 2, 96, '#7a7268', 1);
-  if (Math.sin(G.time * 4) > -0.3) drawTextCentered(ctx, 'PRESS ENTER OR E', W / 2, 124, '#e8d8a8', 1);
+  if (Math.sin(G.time * 4) > -0.3) drawTextCentered(ctx, controlText('PRESS ENTER OR E'), W / 2, 124, '#e8d8a8', 1);
 }
 
 function drawWin() {
@@ -366,14 +415,14 @@ function drawWin() {
   drawTextCentered(ctx, 'THE CROWN IS YOURS', W / 2, 82, '#f0c030', 2);
   drawTextCentered(ctx, 'GOLD ' + G.player.gold + '   KILLS ' + G.stats.kills, W / 2, 110, '#c0b090', 1);
   drawTextCentered(ctx, 'YET THE STAIRS DESCEND FURTHER...', W / 2, 126, '#7a7268', 1);
-  if (Math.sin(G.time * 4) > -0.3) drawTextCentered(ctx, 'PRESS ENTER OR E TO DELVE DEEPER', W / 2, 146, '#e8d8a8', 1);
+  if (Math.sin(G.time * 4) > -0.3) drawTextCentered(ctx, controlText('PRESS ENTER OR E TO DELVE DEEPER'), W / 2, 146, '#e8d8a8', 1);
 }
 
 function drawPause() {
   drawVignetteOverlay('#000000', 0.5);
   drawTextCentered(ctx, 'PAUSED', W / 2, 52, '#e8d8a8', 2);
   drawMenuItems(G.menu.items, G.menu.sel, 82, 13);
-  drawTextCentered(ctx, 'TAB RESUME', W / 2, 148, '#544c40', 1);
+  drawTextCentered(ctx, controlText('TAB RESUME'), W / 2, 148, '#544c40', 1);
 }
 
 // same box as the slot picker, so the two feel like siblings
@@ -383,5 +432,5 @@ function drawOptions() {
   drawTextCentered(ctx, 'OPTIONS', W / 2, 50, '#c8a038', 1);
   // four rows have to clear the footer inside the same box
   drawMenuItems(G.menu.items, G.menu.sel, 64, 13);
-  drawTextCentered(ctx, 'ENTER/E TOGGLE   TAB BACK', W / 2, 120, '#544c40', 1);
+  drawTextCentered(ctx, controlText('ENTER/E TOGGLE   TAB BACK'), W / 2, 120, '#544c40', 1);
 }
