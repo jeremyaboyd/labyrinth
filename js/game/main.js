@@ -375,11 +375,28 @@ function buildBillboards() {
     const fi = ((G.time * 9 + t.phase) | 0) % 3;
     out.push({ x: t.x, y: t.y, z: standZ(lvl, t.x, t.y), img: SPRITES.torch[fi], hFrac: 0.44, zOff: 0.38, glow: true });
   }
-  // the stairways are tiles now -- a hole with a ladder, laid by markStairways
-  // -- so the only markers left standing are a mine's timber frames
+  // a mine's mouths keep their timber frames
   if (lvl.isMine) {
     for (const spot of [lvl.start, lvl.exit]) {
       out.push({ x: spot.x + 0.5, y: spot.y + 0.5, z: 0, img: SPRITES.mineFrame[0], hFrac: 1.0, zOff: 0, glow: false });
+    }
+  }
+  // the shaft ladders stand in the holes markStairways cut: floor-to-ceiling
+  // into the hole overhead where you came down, and half a tile proud of the
+  // black circle where the way down is
+  const ladderAt = (spot, img, hFrac) => out.push({
+    x: spot.x + 0.5, y: spot.y + 0.5, z: standZ(lvl, spot.x + 0.5, spot.y + 0.5),
+    img, hFrac, zOff: 0, glow: false,
+  });
+  if (!lvl.isMine && lvl.floorNum > 0) {
+    ladderAt(lvl.start, SPRITES.ladderFull[0], 0.98);
+    if ((!lvl.hasCrown || G.crownTaken) && !lvl.noDeeper) {
+      ladderAt(lvl.exit, SPRITES.ladderHalf[0], 0.5);
+    }
+  }
+  if (lvl.floorNum === 0 && lvl.portals) {
+    for (const portal of lvl.portals) {
+      if (portal.kind === 'dungeon') ladderAt(portal, SPRITES.ladderHalf[0], 0.5);
     }
   }
   for (const it of G.items) {
