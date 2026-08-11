@@ -72,6 +72,11 @@ function addMsg(text) {
 function loadFloor(n, arriveAt) {
   // level 0 is the fixed surface; everything below it is rolled from the seed
   const lvl = n === 0 ? buildOverworld() : generateDungeon(n, (G.baseSeed + n * 7919) >>> 0);
+  // the renderer draws stacks of slabs, not tiles: work out how tall each cell
+  // stands and what its top and underside look like, once, here
+  buildSlabs(lvl, lvl.outdoor
+    ? { floorTex: T_GRASS, ceilTex: 0 }
+    : { floorTex: T_FLOOR, ceilTex: T_CEIL });
   G.level = lvl;
   G.explored = new Uint8Array(lvl.w * lvl.h);
   // ground you have already walked stays walked: no fog on a floor you finished

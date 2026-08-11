@@ -4,7 +4,7 @@
 // you ship, which is what evicts the old copy.
 'use strict';
 
-const VERSION = 'labyrinth-v2';
+const VERSION = 'labyrinth-v3';
 
 const SHELL = [
   './',
@@ -22,6 +22,7 @@ const SHELL = [
   'js/engine/raycaster.js',
   'js/engine/input.js',
   'js/game/tiles.js',
+  'js/game/slabs.js',
   'js/game/config.js',
   'js/game/items.js',
   'js/game/shops.js',
