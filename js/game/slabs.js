@@ -13,20 +13,49 @@ const Z_CEIL = 1;     // underside of a dungeon ceiling
 const Z_DEEP = -8;    // far enough below that no face ever ends on screen
 const Z_HIGH = 8;     // ditto above
 
-// how tall each solid tile stands, in tiles. Anything unlisted is one tall,
-// which is what every wall in the game was before there was a choice.
-const TILE_H = {};
+// How tall each solid tile stands, in tiles. Anything unlisted is one tall,
+// which is what every wall in the game was before there was a choice. Only
+// the surface uses these: underground a wall runs to the ceiling regardless.
+const TILE_H = {
+  [T_MOUNTAIN]: 5,   // the range walls the world in, and now looks like it
+  [T_CASTLE]: 3,     // three storeys, with a walk along the top
+  [T_HOUSE]: 2,      // cottages with an upper floor
+  [T_WINDOW]: 2,
+  [T_HDOOR]: 2,
+};
 
 function tileHeight(id) {
   const h = TILE_H[id];
   return h != null ? h : 1;
 }
 
-// Which way a ramp tile climbs, and how far. A ramp rises one tile across one
-// tile of ground, so its face is at 45 degrees, and it is the only thing in
-// the world you can walk up to reach the level above.
+// A ramp rises one tile across one tile of ground -- 45 degrees -- and is the
+// only thing you can walk up to reach the level above. Direction is which way
+// it climbs; a level supplies them per cell in rampMap, with the height of the
+// low edge in rampLo.
 const RAMP_DIR = { E: 1, W: 2, S: 3, N: 4 };
-const TILE_RAMP = {};   // tile id -> { dir, lo, hi }
+const RAMP_STEP = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]; // by direction
+
+// Turn a sparse list of flights into per-cell ramp data. Each flight names
+// where it starts, which way it climbs and how many tiles long it is; the
+// low edge of each step is one higher than the last, so a flight of three
+// carries you up three.
+function layRamps(lvl, flights, baseZ) {
+  const ramp = new Uint8Array(lvl.w * lvl.h);
+  const lo = new Float32Array(lvl.w * lvl.h);
+  for (const f of flights) {
+    const [sx, sy] = RAMP_STEP[f.dir];
+    for (let k = 0; k < f.len; k++) {
+      const x = f.x + sx * k, y = f.y + sy * k;
+      if (x < 0 || y < 0 || x >= lvl.w || y >= lvl.h) continue;
+      const i = y * lvl.w + x;
+      ramp[i] = f.dir;
+      lo[i] = (f.z0 != null ? f.z0 : baseZ || 0) + k;
+    }
+  }
+  lvl.rampMap = ramp;
+  lvl.rampLo = lo;
+}
 
 // A cell you can stand in: ground underfoot, and a ceiling overhead if this
 // level has one. Outdoors there is no ceiling slab, which is what lets the sky
@@ -51,12 +80,14 @@ function buildSlabs(lvl, opts) {
       const ground = (floorMap && floorMap[i]) || floorTex;
       const def = c ? lvl.tiles[c] : null;
 
-      // a ramp: ground that climbs, so the level above is reachable on foot
-      const rp = c ? TILE_RAMP[c] : null;
-      if (rp) {
+      // a ramp: ground that climbs, so the level above is reachable on foot.
+      // The map cell stays open, because a ramp is floor and not wall.
+      const rdir = lvl.rampMap && lvl.rampMap[i];
+      if (rdir) {
+        const zlo = lvl.rampLo ? lvl.rampLo[i] : 0;
         const cell = [{
-          z0: Z_DEEP, z1: rp.lo, side: c, top: c, bot: 0,
-          ramp: rp.dir, rampHi: rp.hi,
+          z0: Z_DEEP, z1: zlo, side: opts.rampTex || ground, top: opts.rampTex || ground,
+          bot: 0, ramp: rdir, rampHi: zlo + 1,
         }];
         if (ceilTex) cell.push({ z0: Z_CEIL, z1: Z_HIGH, side: 0, top: 0, bot: ceilTex });
         slabs[i] = cell;

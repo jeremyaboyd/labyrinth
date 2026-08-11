@@ -75,8 +75,8 @@ function loadFloor(n, arriveAt) {
   // the renderer draws stacks of slabs, not tiles: work out how tall each cell
   // stands and what its top and underside look like, once, here
   buildSlabs(lvl, lvl.outdoor
-    ? { floorTex: T_GRASS, ceilTex: 0 }
-    : { floorTex: T_FLOOR, ceilTex: T_CEIL });
+    ? { floorTex: T_GRASS, ceilTex: 0, rampTex: T_CASTLE }
+    : { floorTex: T_FLOOR, ceilTex: T_CEIL, rampTex: T_STONE });
   G.level = lvl;
   G.explored = new Uint8Array(lvl.w * lvl.h);
   // ground you have already walked stays walked: no fog on a floor you finished

@@ -74,6 +74,13 @@ const OW_LEGEND = {
   'L': [T_LAMP, T_GRASS],
 };
 
+// Stone flights up onto things. Each names where the low end sits, which way
+// it climbs and how many tiles it runs, so a flight of three lifts you three.
+// The castle wall walk is reached from inside the courtyard.
+const OW_RAMPS = [
+  { x: 12, y: 12, dir: RAMP_DIR.W, len: 3 },  // courtyard up to the west rampart
+];
+
 // the village crossroads, looking north up the lane between the cottages
 const OW_START = { x: 28, y: 28, a: -Math.PI / 2 };
 
@@ -114,7 +121,7 @@ function buildOverworld() {
   }
   if (!exit) throw new Error('overworld has no dungeon entrance');
 
-  return {
+  const lvl = {
     w, h, map, floorMap, props,
     doors: {},
     tiles: TILE_DEFS,
@@ -132,4 +139,6 @@ function buildOverworld() {
     hasCrown: false,
     outdoor: true,
   };
+  layRamps(lvl, OW_RAMPS, 0);
+  return lvl;
 }
