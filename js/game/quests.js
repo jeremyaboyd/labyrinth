@@ -129,11 +129,12 @@ function questMarker(p) {
       : p.realm === 'castle' && def.item.floor === p.floor;
     return here ? { floor: p.floor, x: def.item.x, y: def.item.y } : null;
   }
-  if (def.kind === 'relic') {
+  if (def.kind === 'relic' || def.kind === 'slay' || def.kind === 'exterminate') {
     const e = questEntry(p, id);
     if (e.carrying) {
+      // homeward: the marker follows whoever asked
       if (p.floor !== 0) return null;
-      const g = G.npcs[def.giver];
+      const g = def.giver === 'king' ? G.npcs.find(n => n.role === 'king') : G.npcs[def.giver];
       return g ? { floor: 0, x: g.x | 0, y: g.y | 0 } : null;
     }
     if (p.floor === 0) {
@@ -142,8 +143,22 @@ function questMarker(p) {
       return portal ? { floor: 0, x: portal.x, y: portal.y } : null;
     }
     if (p.realm === def.portal) {
+      // inside: the relic on the ground, the boss who carries it, or --
+      // for an extermination -- whatever still moves
       const it = G.items.find(i => i.type === 'relic' && i.qid === id);
       if (it) return { floor: p.floor, x: it.x | 0, y: it.y | 0 };
+      if (def.kind === 'slay') {
+        const boss = G.enemies.find(en => en.qid === id);
+        if (boss) return { floor: p.floor, x: boss.x | 0, y: boss.y | 0 };
+      }
+      if (def.kind === 'exterminate') {
+        let best = null, bestD = Infinity;
+        for (const en of G.enemies) {
+          const d = Math.abs(en.x - p.x) + Math.abs(en.y - p.y);
+          if (d < bestD) { bestD = d; best = en; }
+        }
+        if (best) return { floor: p.floor, x: best.x | 0, y: best.y | 0 };
+      }
     }
     return null;
   }
@@ -158,6 +173,9 @@ function questMarker(p) {
 // ---------- story beats ----------
 function questsOnNewGame(p) {
   p.quests = newQuestLog();
+  // a custom world tells its own story through designer quests; the royal
+  // summons belongs to the stock Kingshore and points at its castle
+  if (typeof CustomData !== 'undefined' && CustomData.world()) return;
   questGrant(p, 'audience', false);
 }
 
@@ -195,28 +213,60 @@ function kingDialogue(p) {
 // need no place in a save: only the player's log entry travels.
 let DESIGNER_QUESTS = {};
 
+// each kind's journal steps and its hint, written around the thing wanted
+const DESIGNER_KINDS = {
+  relic: (thing) => ({
+    hint: 'FIND ' + thing,
+    steps: [
+      'FIND ' + thing + '.',
+      'IT LIES IN THE DEPTHS. SEEK THE WAY IN.',
+      'YOU HAVE IT. CARRY IT BACK.',
+      'RETURNED. THE PROMISE WAS KEPT.',
+    ],
+  }),
+  slay: (thing) => ({
+    hint: 'TAKE ' + thing,
+    steps: [
+      'A WITCH MUST DIE. SEEK HER LAIR.',
+      'HER MINIONS WARD HER: FELL THEM FIRST.',
+      'SHE IS DEAD. CARRY ' + thing + ' BACK.',
+      'DELIVERED. THE PROMISE WAS KEPT.',
+    ],
+  }),
+  exterminate: () => ({
+    hint: 'KILL EVERY LAST ONE',
+    steps: [
+      'VERMIN. KILL EVERY LAST ONE OF THEM.',
+      'THE WAY IN IS MARKED. LEAVE NONE ALIVE.',
+      'CLEARED OUT. GO AND SAY SO.',
+      'DONE, AND PAID FOR.',
+    ],
+  }),
+};
+
 function buildDesignerQuests(list) {
   DESIGNER_QUESTS = {};
   for (const q of list || []) {
     if (!q || !q.id || q.giver == null || !q.portal) continue;
     const id = 'dq_' + q.id;
+    const kind = DESIGNER_KINDS[q.kind] ? q.kind : 'relic';
     const thing = (q.thing || 'THE LOST RELIC').toUpperCase();
     const name = (q.name || thing).toUpperCase();
+    const shape = DESIGNER_KINDS[kind](thing);
     DESIGNER_QUESTS[id] = {
-      id, kind: 'relic',
+      id, kind,
       name,
-      hint: 'FIND ' + thing,
-      from: 'A VILLAGER',
+      hint: shape.hint,
+      from: q.giver === 'king' ? 'THE KING' : 'A VILLAGER',
       thing,
-      giver: q.giver | 0,
+      // the giver is a villager's index, or the king himself
+      giver: q.giver === 'king' ? 'king' : q.giver | 0,
       portal: q.portal,
+      boss: kind === 'slay' ? (q.boss || 'witch') : null,
       reward: q.reward || {},
-      steps: [
-        'FIND ' + thing + '.',
-        'IT LIES IN THE DEPTHS. SEEK THE WAY IN.',
-        'YOU HAVE IT. CARRY IT BACK.',
-        'RETURNED. THE PROMISE WAS KEPT.',
-      ],
+      // a designer may write the giver's own words; each is an array of lines
+      lines: q.lines || null,
+      steps: shape.steps,
     };
   }
 }
@@ -268,22 +318,51 @@ function relicSpotFor(lvl) {
   return best || { x: lvl.exit.x, y: lvl.exit.y };
 }
 
-// called by loadFloor: lay the relic out if a held quest points at this
-// floor of this realm and it is not already carried home
+// the floor of a realm where its prizes lie: a mine's single level, or a
+// finite dungeon's deepest floor. An endless dungeon has no such floor.
+function realmPrizeFloor(portal) {
+  return portal.kind === 'mine' ? 1 : (portal.floors > 0 ? portal.floors : -1);
+}
+
+// called by loadFloor: lay out whatever a held quest owes this floor of this
+// realm -- a relic on the ground, or a boss carrying it
 function layQuestRelic(lvl, realm, n) {
   const p = G.player;
   if (!realm || !p || !p.quests) return;
   const portal = G.portals[realm];
-  if (!portal) return;
-  const relicFloor = portal.kind === 'mine' ? 1 : (portal.floors > 0 ? portal.floors : 0);
-  if (n !== relicFloor) return;
+  if (!portal || n !== realmPrizeFloor(portal)) return;
   for (const id in DESIGNER_QUESTS) {
     const def = DESIGNER_QUESTS[id];
-    if (def.portal !== realm) continue;
+    if (def.portal !== realm || def.kind === 'exterminate') continue;
     const e = questEntry(p, id);
     if (!e || e.done || e.carrying) continue;
     const spot = relicSpotFor(lvl);
-    G.items.push({ type: 'relic', qid: id, x: spot.x + 0.5, y: spot.y + 0.5, bob: Math.random() * 10 });
+    if (def.kind === 'slay') {
+      // the prize walks: a boss carrying it, warded by her own minions
+      const boss = makeEnemy(def.boss, spot.x + 0.5, spot.y + 0.5);
+      boss.qid = id;
+      boss.ward = 'skeleton';
+      G.enemies.push(boss);
+    } else {
+      G.items.push({ type: 'relic', qid: id, x: spot.x + 0.5, y: spot.y + 0.5, bob: Math.random() * 10 });
+    }
+  }
+}
+
+// called whenever an enemy falls: an exterminate quest is fulfilled the
+// moment its realm has nothing left alive in it
+function checkExterminateQuests() {
+  const p = G.player;
+  if (!p || !p.quests || !G.realm || G.enemies.length) return;
+  for (const id in DESIGNER_QUESTS) {
+    const def = DESIGNER_QUESTS[id];
+    if (def.kind !== 'exterminate' || def.portal !== G.realm) continue;
+    const e = questEntry(p, id);
+    if (!e || e.done || e.carrying) continue;
+    e.carrying = true; // nothing to carry but the news
+    questReveal(p, id, 3);
+    addMsg('EVERY LAST ONE. GO AND CLAIM YOUR DUE.');
+    SFX.questDone();
   }
 }
 
@@ -298,27 +377,42 @@ function relicPickup(p, qid) {
   SFX.quest();
 }
 
-// the giver's designer quest that still wants something of the player
+// the giver's designer quest that still wants something of the player.
+// The giver is a villager matched by index, or the king matched by role.
 function designerQuestFromGiver(p, v) {
+  const who = v.role === 'king' ? 'king' : v.line;
   for (const id in DESIGNER_QUESTS) {
-    if (DESIGNER_QUESTS[id].giver === v.line && !questDone(p, id)) return id;
+    if (DESIGNER_QUESTS[id].giver === who && !questDone(p, id)) return id;
   }
   return null;
 }
 
-// what the giver says: the offer, the reminder, or the handover
+// what the giver says: the offer, the reminder, or the handover. A designer
+// may have written the giver's own words; otherwise each kind has stock ones.
 function designerQuestTalk(p, v, qid) {
   const def = DESIGNER_QUESTS[qid];
   const name = villagerName(v);
   const where = G.portals[def.portal] ? G.portals[def.portal].name : 'THE DEPTHS';
+  const said = (key, fallback) =>
+    (def.lines && Array.isArray(def.lines[key]) && def.lines[key].length) ? def.lines[key] : fallback;
   if (!questHeld(p, qid)) {
+    const stock = def.kind === 'slay' ? [
+      'A WITCH LAIRS IN ' + where + '.',
+      'HER MINIONS WARD HER: FELL THEM FIRST.',
+      'BRING ME ' + def.thing + ' SHE CARRIES AND',
+      rewardText(def.reward) + ' IS YOURS.',
+    ] : def.kind === 'exterminate' ? [
+      'VERMIN HAVE TAKEN ' + where + '.',
+      'KILL EVERY LAST ONE OF THEM.',
+      'DO THAT AND ' + rewardText(def.reward) + ' IS YOURS.',
+    ] : [
+      'I NEED ' + def.thing + '.',
+      'IT LIES IN ' + where + '.',
+      'BRING IT BACK AND ' + rewardText(def.reward) + ' IS YOURS.',
+    ];
     return {
       name,
-      lines: [
-        'I NEED ' + def.thing + '.',
-        'IT LIES IN ' + where + '.',
-        'BRING IT BACK AND ' + rewardText(def.reward) + ' IS YOURS.',
-      ],
+      lines: said('offer', stock),
       onEnd: () => {
         p.quests.log[qid] = { done: false, revealed: 2, carrying: false };
         if (!p.quests.active) p.quests.active = qid;
@@ -328,13 +422,19 @@ function designerQuestTalk(p, v, qid) {
     };
   }
   if (questEntry(p, qid).carrying) {
+    const stock = def.kind === 'exterminate'
+      ? ['NOT ONE LEFT? YOU ARE A WONDER.', 'AS PROMISED: ' + rewardText(def.reward) + '.']
+      : ['YOU HAVE IT! ' + def.thing + '!', 'AS PROMISED: ' + rewardText(def.reward) + '.'];
     return {
       name,
-      lines: ['YOU HAVE IT! ' + def.thing + '!', 'AS PROMISED: ' + rewardText(def.reward) + '.'],
+      lines: said('done', stock),
       onEnd: () => { grantQuestReward(p, def); questComplete(p, qid); },
     };
   }
-  return { name, lines: ['ANY SIGN OF ' + def.thing + '?', 'IT LIES IN ' + where + '.'] };
+  const stock = def.kind === 'exterminate'
+    ? ['STILL SCRATCHING IN ' + where + '.', 'EVERY LAST ONE, REMEMBER.']
+    : ['ANY SIGN OF ' + def.thing + '?', 'IT LIES IN ' + where + '.'];
+  return { name, lines: said('remind', stock) };
 }
 
 const VILLAGER_LINES = [
@@ -421,21 +521,22 @@ function makeFetchQuest(p, v) {
   const t = TRINKETS[(Math.random() * TRINKETS.length) | 0];
   // half the errands stay under the sky; the rest went below with somebody.
   // Nothing is hidden deeper than one floor past your deepest, the same bound
-  // the stairwell holds you to.
-  const floor = Math.random() < 0.5
+  // the stairwell holds you to. A world without the castle's endless descent
+  // keeps every errand under the sky.
+  const floor = Math.random() < 0.5 || !G.portals.castle
     ? 0
     : 1 + ((Math.random() * clamp(realmState('castle').deepest + 1, 1, CROWN_FLOOR)) | 0);
   const spot = fetchSpot(floor);
   const reward = 40 + floor * 30 + ((Math.random() * 20) | 0);
   const name = villagerName(v);
-  const where = floor === 0 ? 'SOMEWHERE ABOUT KINGSHORE' : 'ON FLOOR ' + floor + ' OF THE LABYRINTH';
+  const where = floor === 0 ? 'SOMEWHERE ABOUT ' + G.surfaceName : 'ON FLOOR ' + floor + ' OF THE LABYRINTH';
   p.quests.seq = (p.quests.seq || 0) + 1;
   return {
     id: 'fetch' + p.quests.seq,
     kind: 'fetch',
     name: t.qname,
     hint: t.hint,
-    from: name + ' OF KINGSHORE',
+    from: name + ' OF ' + G.surfaceName,
     thing: t.thing,
     reward,
     giver: v.line,
@@ -483,7 +584,7 @@ function villagerTalk(v) {
     return {
       name,
       lines: ['ANY SIGN OF ' + def.thing + '?',
-        def.item.floor === 0 ? 'IT IS SOMEWHERE ABOUT KINGSHORE.' : 'IT WAS CARRIED DOWN TO FLOOR ' + def.item.floor + '.'],
+        def.item.floor === 0 ? 'IT IS SOMEWHERE ABOUT ' + G.surfaceName + '.' : 'IT WAS CARRIED DOWN TO FLOOR ' + def.item.floor + '.'],
     };
   }
   if (fetchOutstanding(p) < FETCH_CAP && Math.random() < 0.45) {
@@ -492,7 +593,7 @@ function villagerTalk(v) {
       name,
       lines: [
         'I LOST ' + def.thing + ', AND IT PAINS ME.',
-        def.item.floor === 0 ? 'IT IS SOMEWHERE ABOUT KINGSHORE.' : 'IT WAS CARRIED DOWN TO FLOOR ' + def.item.floor + '.',
+        def.item.floor === 0 ? 'IT IS SOMEWHERE ABOUT ' + G.surfaceName + '.' : 'IT WAS CARRIED DOWN TO FLOOR ' + def.item.floor + '.',
         'BRING IT BACK AND ' + def.reward + ' GOLD IS YOURS.',
       ],
       onEnd: () => questGrantDynamic(p, def),

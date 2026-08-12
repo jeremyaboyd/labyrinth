@@ -200,6 +200,47 @@ function drawWraith(ctx, p, pose) {
   p.px(4.6 + sway, 19.6, RL); p.px(19.4 - sway, 19.6, RL);
 }
 
+function drawWitch(ctx, p, pose) {
+  // pose: {sway, cast} -- she walks with a stoop and raises both arms to cast
+  const R = '#2a1a34', RD = '#180e20', RL = '#44305a';
+  const SKIN = '#8aa858', SKIN_D = '#5c7438';
+  const cx = 12, sway = pose.sway || 0;
+  // ragged robe, wider at the hem than a wraith and solid to the ground
+  for (let y = 12; y < 31; y++) {
+    const half = 3 + (y - 12) * 0.32;
+    const xoff = Math.sin(y * 0.5 + sway * 2) * 0.7;
+    if (y > 27 && Math.sin(y * 5 + xoff * 3) > 0.4) continue; // torn hem
+    for (let x = Math.round(cx + xoff - half); x <= Math.round(cx + xoff + half); x++) {
+      const edge = Math.abs(x - (cx + xoff)) / half;
+      p.px(x, y, edge > 0.7 ? RD : (edge < 0.28 ? RL : R));
+    }
+  }
+  // arms: raised overhead mid-cast, else clawed and swinging
+  if (pose.cast) {
+    p.line(cx - 4, 14, cx - 8, 6, R, 2);
+    p.line(cx + 4, 14, cx + 8, 6, R, 2);
+    p.px(cx - 8, 5, SKIN); p.px(cx + 8, 5, SKIN);
+    // the hex gathering between her hands
+    p.px(cx - 1, 3, '#80f040'); p.px(cx + 1, 4, '#b0ff70'); p.px(cx, 2, '#e0ffb0');
+  } else {
+    p.line(cx - 4, 14, cx - 7 - sway, 19, R, 2);
+    p.line(cx + 4, 14, cx + 7 + sway, 19, R, 2);
+    p.px(cx - 7 - sway, 20, SKIN); p.px(cx + 7 + sway, 20, SKIN);
+  }
+  // green face under the hat brim
+  p.disc(cx, 9, 3, SKIN_D);
+  p.disc(cx, 8.6, 2.4, SKIN);
+  p.px(cx - 1, 9, '#e03020'); p.px(cx + 1, 9, '#e03020'); // ember eyes
+  p.px(cx, 11, SKIN_D);                                   // hooked chin
+  p.px(cx + 2, 10, SKIN_D);                               // the wart
+  // pointed hat, kinked at the tip
+  p.rect(cx - 6, 6, 13, 2, RD);       // brim
+  p.line(cx - 3, 6, cx, -1, RD, 3);   // cone
+  p.line(cx - 1, 6, cx + 1, 0, R, 2);
+  p.line(cx, 0, cx + 3, -1, RD, 2);   // the kink
+  p.rect(cx - 3, 5, 7, 1, '#6a4a1c'); // hat band
+}
+
 // ---------------- items & props ----------------
 
 function drawPotion(ctx, p, pal) {
@@ -307,6 +348,17 @@ function drawMagicBolt(ctx, p, f) {
   p.px(8, 8, '#ffffff');
   const spark = f ? [[2, 4], [13, 5], [6, 14]] : [[13, 3], [3, 11], [11, 13]];
   for (const [sx, sy] of spark) p.px(sx, sy, '#a8d8ff');
+}
+
+// the witch's shot: a sickly green counterpart to the player's blue bolt
+function drawHexBolt(ctx, p, f) {
+  const r = f ? 5 : 4.4;
+  p.disc(8, 8, r, '#1e3a10');
+  p.disc(8, 8, r - 1.4, '#58a020');
+  p.disc(8, 8, r - 2.8, '#c0f080');
+  p.px(8, 8, '#f0ffd0');
+  const spark = f ? [[2, 4], [13, 5], [6, 14]] : [[13, 3], [3, 11], [11, 13]];
+  for (const [sx, sy] of spark) p.px(sx, sy, '#c0f080');
 }
 
 function drawGold(ctx, p) {
@@ -452,6 +504,34 @@ function drawLamp(ctx, p, flame) {
     p.disc(8, 10.5, 1.1, '#ffd040');
     p.px(8 + fx, 9, '#fff0a0');
   }
+}
+
+// the ferry: a broad-beamed skiff tied up at its dock, mast stepped and the
+// sail furled. Drawn side-on; it reads the same from either shore.
+function drawBoat(ctx, p) {
+  const HULL = '#5a3a20', HULL_L = '#7a5430', HULL_D = '#3a2412';
+  // hull: planked, swept up at both ends
+  for (let x = 2; x < 42; x++) {
+    const rise = Math.max(0, Math.abs(x - 22) - 12) * 0.9;
+    const top = 15 - rise;
+    for (let y = Math.round(top); y <= 22 - Math.round(Math.abs(x - 22) * 0.14); y++) {
+      p.px(x, y, y - top < 2 ? HULL_L : ((y % 3) === 0 ? HULL_D : HULL));
+    }
+  }
+  // gunwale line
+  for (let x = 2; x < 42; x++) {
+    const rise = Math.max(0, Math.abs(x - 22) - 12) * 0.9;
+    p.px(x, Math.round(15 - rise), '#9c6d36');
+  }
+  // mast and furled sail
+  p.rect(21, 0, 2, 15, '#4a3016');
+  p.rect(21, 0, 1, 15, '#6a4a24');
+  p.rect(16, 2, 12, 3, '#b0a284');   // the sail, lashed to its yard
+  p.rect(16, 2, 12, 1, '#d0c4a4');
+  for (const tx of [18, 23, 26]) p.px(tx, 5, '#5a4a30'); // ties
+  // rudder and a coil of rope on the foredeck
+  p.rect(41, 14, 2, 6, HULL_D);
+  p.disc(8, 14, 1.6, '#8a7448');
 }
 
 const VILLAGER_PALS = [
@@ -681,7 +761,12 @@ function generateSprites() {
     makeSpriteFrame(E, EH, (c, p) => drawWraith(c, p, { sway: -0.6 })),
     makeSpriteFrame(E, EH, (c, p) => drawWraith(c, p, { sway: 0 })),
   ];
-  for (const k of ['skeleton', 'rat', 'wraith']) {
+  SPRITES.witch = [
+    makeSpriteFrame(E, EH, (c, p) => drawWitch(c, p, { sway: 0.7, cast: false })),
+    makeSpriteFrame(E, EH, (c, p) => drawWitch(c, p, { sway: -0.7, cast: false })),
+    makeSpriteFrame(E, EH, (c, p) => drawWitch(c, p, { sway: 0, cast: true })),
+  ];
+  for (const k of ['skeleton', 'rat', 'wraith', 'witch']) {
     SPRITES[k].push(painVariant(SPRITES[k][0]));
   }
 
@@ -708,6 +793,7 @@ function generateSprites() {
     makeSpriteFrame(32, 56, (c, p) => drawTree(c, p, 0)),
     makeSpriteFrame(32, 56, (c, p) => drawTree(c, p, 1)),
   ];
+  SPRITES.boat = [makeSpriteFrame(44, 24, drawBoat)];
   SPRITES.lampOff = [makeSpriteFrame(16, 48, (c, p) => drawLamp(c, p, -1))];
   SPRITES.lampOn = [
     makeSpriteFrame(16, 48, (c, p) => drawLamp(c, p, 0)),
@@ -756,6 +842,10 @@ function generateSprites() {
   SPRITES.shot_bolt = [
     makeSpriteFrame(16, 16, (c, p) => drawMagicBolt(c, p, 0)),
     makeSpriteFrame(16, 16, (c, p) => drawMagicBolt(c, p, 1)),
+  ];
+  SPRITES.shot_hex = [
+    makeSpriteFrame(16, 16, (c, p) => drawHexBolt(c, p, 0)),
+    makeSpriteFrame(16, 16, (c, p) => drawHexBolt(c, p, 1)),
   ];
 
   // ---- first-person overlays: idle, wind-up, strike, follow-through ----

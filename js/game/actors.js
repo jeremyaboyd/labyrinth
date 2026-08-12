@@ -55,6 +55,22 @@ function resolveAttack() {
   return doMeleeHit(w);
 }
 
+// A warded enemy cannot be harmed while any of its wards still stands: the
+// witch is untouchable until her skeletons are down. Damage callers check
+// this and land nothing but the message.
+function enemyWarded(e) {
+  return !!e.ward && G.enemies.some(o => o !== e && o.type === e.ward && o.hp > 0);
+}
+
+function wardDeflect(e) {
+  e.painT = 0.12; // she flinches, but nothing lands
+  if (!e.wardMsgAt || G.time - e.wardMsgAt > 2.5) {
+    addMsg('HER WARD HOLDS WHILE HER MINIONS STAND');
+    SFX.denied();
+    e.wardMsgAt = G.time;
+  }
+}
+
 function doMeleeHit(w) {
   const p = G.player;
   const dirX = Math.cos(p.a), dirY = Math.sin(p.a);
@@ -66,6 +82,7 @@ function doMeleeHit(w) {
     const dot = (dx / d) * dirX + (dy / d) * dirY;
     if (dot < 0.75 && d > 0.6) continue;
     if (!lineOfSight(G.level, p.x, p.y, e.x, e.y)) continue;
+    if (enemyWarded(e)) { wardDeflect(e); hit = true; continue; }
     e.hp -= w.dmg + Math.random() * w.vary;
     e.painT = 0.18;
     e.state = 'chase';
@@ -146,7 +163,10 @@ function portalUnderFoot() {
   if (lvl.floorNum !== 0 || !lvl.portals) return null;
   for (const portal of lvl.portals) {
     if (onSpot(portal)) return { portal, side: 'enter' };
-    if (portal.kind === 'mine' && onSpot(portal.exit)) return { portal, side: 'exit' };
+    // a mine has a mouth at each end, a boat a dock at each shore
+    if ((portal.kind === 'mine' || portal.kind === 'boat') && onSpot(portal.exit)) {
+      return { portal, side: 'exit' };
+    }
   }
   return null;
 }
@@ -177,8 +197,21 @@ function useFront() {
   const at = portalUnderFoot();
   if (at) {
     if (portalSealed(at.portal)) {
-      addMsg('SEALED. SOMEONE HOLDS THE KEY.');
+      addMsg(at.portal.kind === 'boat'
+        ? 'YOU HAVE NO PASSAGE. SOMEONE MUST BOOK IT.'
+        : 'SEALED. SOMEONE HOLDS THE KEY.');
       SFX.doorLocked();
+      return;
+    }
+    if (at.portal.kind === 'boat') {
+      // the crossing itself is elided: a fade, and you are at the far dock
+      const dest = at.side === 'exit' ? at.portal : at.portal.exit;
+      SFX.sail();
+      G.state = 'transition';
+      G.transT = 0;
+      p.x = dest.x + 0.5;
+      p.y = dest.y + 0.5;
+      addMsg('YOU SAIL ACROSS THE WATER');
       return;
     }
     if (at.portal.id === 'castle') {
@@ -208,8 +241,16 @@ function useFront() {
 
   const npc = npcInFront();
   if (npc) {
-    // the king holds his scripted audience; a villager offers talk or trade
-    if (npc.role === 'king') startDialogue(kingDialogue(p));
+    // the king holds his scripted audience -- unless a designer gave him a
+    // quest of his own, which then speaks for him. A custom king with no
+    // quest has nothing to say about a labyrinth his world may not have.
+    if (npc.role === 'king') {
+      const dqid = designerQuestFromGiver(p, npc);
+      if (dqid) startDialogue(designerQuestTalk(p, npc, dqid));
+      else if (typeof CustomData !== 'undefined' && CustomData.world()) {
+        startDialogue({ name: 'THE KING', lines: ['BE WELCOME IN MY TOWN, TRAVELER.'] });
+      } else startDialogue(kingDialogue(p));
+    }
     else openNpcMenu(npc);
     return;
   }
@@ -345,6 +386,12 @@ function updatePlay(dt) {
         fetchPickup(p, it.qid); // somebody's keepsake, carried, not packed
       } else if (it.type === 'relic') {
         relicPickup(p, it.qid); // a designer quest's prize, carried the same way
+      } else if (it.type === 'portalkey') {
+        // a key to somewhere: laid as a realm's prize, it unseals its portal
+        const portal = G.portals[it.portal];
+        if (portal && !p.portalKeys.includes(it.portal)) p.portalKeys.push(it.portal);
+        addMsg(portal ? 'YOU FOUND THE KEY TO ' + portal.name : 'YOU FOUND A STRANGE KEY');
+        SFX.pickupKey();
       } else if (it.type === 'crown') {
         G.crownTaken = true;
         markStairways(G.level); // the way deeper opens in the floor
@@ -423,7 +470,13 @@ function updateEnemies(dt) {
       if (Math.random() < st.drop) {
         G.items.push({ type: 'gold', x: e.x, y: e.y, bob: 0 });
       }
+      // a slay quest's boss carries its prize; it falls where she does
+      if (e.qid) {
+        G.items.push({ type: 'relic', qid: e.qid, x: e.x, y: e.y, bob: Math.random() * 10 });
+        addMsg('SOMETHING FALLS FROM HER HAND');
+      }
       G.enemies.splice(i, 1);
+      checkExterminateQuests(); // an emptied floor may finish an errand
       continue;
     }
 
@@ -452,23 +505,41 @@ function updateEnemies(dt) {
       }
     }
 
-    // attack wind-up in progress
+    // attack wind-up in progress: a swing about to land, or a hex gathering
     if (e.atkT > 0) {
       e.atkT -= dt;
       if (e.atkT <= 0) {
-        if (d < st.range + 0.35) {
-          p.hp -= st.dmg * (0.8 + Math.random() * 0.4) * (1 - armorSoak(p));
-          G.hurtT = 0.35;
-          G.shakeT = 0.25;
-          SFX.enemyHitPlayer();
+        if (e.casting) {
+          e.casting = false;
+          if (lineOfSight(lvl, e.x, e.y, p.x, p.y)) {
+            const a = Math.atan2(p.y - e.y, p.x - e.x);
+            spawnProjectile('hex', 'shot_hex',
+              e.x + Math.cos(a) * 0.4, e.y + Math.sin(a) * 0.4, a, st.bolt.dmg, st.bolt.vary);
+            SFX.hexLoose();
+          }
+          e.cdT = st.bolt.cd;
+        } else {
+          if (d < st.range + 0.35) {
+            p.hp -= st.dmg * (0.8 + Math.random() * 0.4) * (1 - armorSoak(p));
+            G.hurtT = 0.35;
+            G.shakeT = 0.25;
+            SFX.enemyHitPlayer();
+          }
+          e.cdT = st.cd;
         }
-        e.cdT = st.cd;
       }
       continue;
     }
 
     // chase
     if (d > st.range) {
+      // a caster stops to hurl her hex once you are in her sight and reach
+      if (st.bolt && e.cdT <= 0 && d > 1.6 && d < st.bolt.range
+          && lineOfSight(lvl, e.x, e.y, p.x, p.y)) {
+        e.atkT = 0.55;
+        e.casting = true;
+        continue;
+      }
       const hasLos = lineOfSight(lvl, e.x, e.y, p.x, p.y);
       let vx = dx / d, vy = dy / d;
       if (!hasLos) {

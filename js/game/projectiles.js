@@ -2,7 +2,7 @@
 // Sub-stepped so a fast shot cannot tunnel through a wall or a rat.
 'use strict';
 
-const PROJ_SPEED = { arrow: 15, bolt: 11 };
+const PROJ_SPEED = { arrow: 15, bolt: 11, hex: 6.5 }; // hex: the witch's shot, slow enough to sidestep
 const PROJ_HIT_R = 0.42;
 const PROJ_SUBSTEPS = 4;
 
@@ -34,9 +34,22 @@ function updateProjectiles(dt) {
       pr.x += pr.vx * dt / PROJ_SUBSTEPS;
       pr.y += pr.vy * dt / PROJ_SUBSTEPS;
       if (solidAt(lvl, pr.x, pr.y)) { projectileImpact(pr, false); dead = true; break; }
+      // a hex is the enemy's shot: it seeks the player and ignores monsters
+      if (pr.kind === 'hex') {
+        const p = G.player;
+        if (Math.hypot(p.x - pr.x, p.y - pr.y) < PROJ_HIT_R) {
+          p.hp -= (pr.dmg + Math.random() * pr.vary) * (1 - armorSoak(p));
+          G.hurtT = 0.35;
+          G.shakeT = 0.25;
+          SFX.enemyHitPlayer();
+          dead = true;
+        }
+        continue;
+      }
       for (const e of G.enemies) {
         if (e.hp <= 0) continue;
         if (Math.hypot(e.x - pr.x, e.y - pr.y) > PROJ_HIT_R) continue;
+        if (enemyWarded(e)) { wardDeflect(e); projectileImpact(pr, false); dead = true; break; }
         e.hp -= pr.dmg + Math.random() * pr.vary;
         e.painT = 0.18;
         e.state = 'chase';
@@ -58,9 +71,9 @@ function projectileBillboards(out) {
     const img = frames[frames.length > 1 ? ((pr.phase | 0) % frames.length) : 0];
     out.push({
       x: pr.x, y: pr.y, img,
-      hFrac: pr.kind === 'bolt' ? 0.22 : 0.16,
+      hFrac: pr.kind === 'arrow' ? 0.16 : 0.22,
       zOff: 0.22,
-      glow: pr.kind === 'bolt',
+      glow: pr.kind !== 'arrow',
     });
   }
 }

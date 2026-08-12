@@ -7,6 +7,10 @@ const ENEMY_STATS = {
   rat:      { hp: 20, speed: 2.3,  dmg: 6,  range: 0.8,  cd: 0.9, hFrac: 0.42, drop: 0.2,  sight: 7,  sfx: 'ratSqueak',  glow: false, floats: false },
   skeleton: { hp: 45, speed: 1.45, dmg: 12, range: 0.95, cd: 1.2, hFrac: 0.74, drop: 0.35, sight: 9,  sfx: 'skelRattle', glow: false, floats: false },
   wraith:   { hp: 60, speed: 1.9,  dmg: 16, range: 0.95, cd: 1.1, hFrac: 0.8,  drop: 0.5,  sight: 12, sfx: 'wraithMoan', glow: true,  floats: true },
+  // a boss, not a floor-filler: she never rolls from BALANCE, only a quest or
+  // a portal's own enemy list puts her anywhere. bolt: she casts at range.
+  witch:    { hp: 160, speed: 1.5, dmg: 18, range: 1.0,  cd: 1.4, hFrac: 0.8,  drop: 0,    sight: 12, sfx: 'witchCackle', glow: false, floats: false,
+              bolt: { dmg: 14, vary: 5, cd: 2.4, range: 7.5 } },
 };
 
 // per-floor difficulty curves used by the dungeon generator

@@ -23,6 +23,18 @@ const SFX = {
   ratSqueak() { Synth.tone('square', 1400, 900, 0.09, 0.06); },
   skelRattle() { for (let i = 0; i < 3; i++) Synth.noise(0.04, 0.08, 700, 2000, i * 0.06); },
   wraithMoan() { Synth.tone('sine', 140, 90, 1.2, 0.1); Synth.tone('sine', 145, 88, 1.2, 0.08, 0.05); },
+  // the witch: a dry falling cackle, and the wet hiss of a hex leaving her hands
+  witchCackle() {
+    [980, 820, 700, 560, 470].forEach((f, i) =>
+      Synth.tone('square', f + Math.random() * 60, f * 0.8, 0.08, 0.09, i * 0.09));
+  },
+  hexLoose() { Synth.tone('sawtooth', 300, 700, 0.25, 0.16); Synth.noise(0.2, 0.1, 1400, 4200, 0.05); },
+  // casting off: rope through a cleat, then the hull shouldering the water
+  sail() {
+    Synth.tone('sawtooth', 150, 90, 0.5, 0.08);
+    for (let i = 0; i < 4; i++) Synth.noise(0.5, 0.12, 70, 260, 0.2 + i * 0.35);
+    Synth.tone('sine', 900, 600, 0.3, 0.03, 1.1); // a gull sees you off
+  },
   enemyHitPlayer() { Synth.tone('sawtooth', 100, 40, 0.25, 0.3); Synth.noise(0.15, 0.3, 80, 260); },
   pickupMana() { Synth.tone('triangle', 420, 840, 0.18, 0.22); Synth.tone('sine', 630, 1260, 0.2, 0.16, 0.08); },
   pickupItem() { Synth.tone('square', 620, 780, 0.06, 0.14); Synth.noise(0.08, 0.1, 400, 1600, 0.04); },
