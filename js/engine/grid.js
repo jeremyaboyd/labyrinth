@@ -129,6 +129,10 @@ function walkBlocked(lvl, x, y, z, r) {
         if (px * px + py * py < rr * rr) return true;
         continue;
       }
+      // a tile the renderer draws straight through (deep water, so the shore
+      // reads as open sea to the horizon) can still stop your feet -- the slab
+      // built for it is an open cell with nothing in it to catch this below
+      if (def && def.block) return true;
 
       const cell = lvl.slabs[cy * lvl.w + cx];
       if (!cell) continue;

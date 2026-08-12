@@ -62,7 +62,9 @@ const TILE_DEFS = {
   // only the trunk and the post block; the sea still fills its whole tile
   [T_TREE]: { noWall: true, prop: 'tree', radius: 0.18 },
   [T_LAMP]: { noWall: true, prop: 'lamp', radius: 0.12 },
-  [T_WATER]: { noWall: true },
+  // noWall lets the ray read straight through to the sea floor; block keeps
+  // your feet out of it despite that -- the two are independent on purpose
+  [T_WATER]: { noWall: true, block: true },
 };
 
 function shopKindAt(cell) {
