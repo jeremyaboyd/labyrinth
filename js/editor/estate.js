@@ -162,12 +162,15 @@ function applyDraftToRuntime() {
   const d = ED.draft;
   for (const key in d.tiles) {
     const id = key | 0, t = d.tiles[key];
+    const was = TILE_DEFS[id];
     const def = {};
     if (t.door) def.door = true;
     if (t.glow) def.glow = true;
     if (t.shop) def.shop = t.shop;
     if (t.prop) { def.noWall = true; def.prop = t.prop; def.radius = t.radius != null ? t.radius : 0.18; }
-    else if (t.noWall) def.noWall = true;
+    else if (t.noWall != null ? t.noWall : (was && was.noWall && !was.prop)) def.noWall = true;
+    // no switch in the panel for these: omitting them means "as it was"
+    if (t.block != null ? t.block : (was && was.block)) def.block = true;
     TILE_DEFS[id] = def;
     if (t.h != null && t.h > 1) TILE_H[id] = t.h;
     else delete TILE_H[id];
@@ -202,11 +205,16 @@ function tileInfo(id) {
 
 // write a full entry into the draft, whether the id is stock or custom
 function setTileInfo(id, info) {
+  // the panel edits what it shows; noWall and block have no switch, so they
+  // ride along from the tile as it stands -- the sea stays wet under a rename
+  const was = TILE_DEFS[id] || {};
   ED.draft.tiles[id] = {
     name: info.name, h: info.h || 1,
     door: !!info.door, glow: !!info.glow,
     shop: info.shop || undefined, prop: info.prop || undefined,
     radius: info.prop ? (info.prop === 'lamp' ? 0.12 : 0.18) : undefined,
+    noWall: !info.prop && was.noWall && !was.prop ? true : undefined,
+    block: was.block ? true : undefined,
   };
   applyDraftToRuntime();
   markDirty();
