@@ -38,13 +38,16 @@ const CustomData = (() => {
 
     // merge tile defs before the first level is built: flags into TILE_DEFS,
     // stature into TILE_H. An entry always carries its full truth, so writing
-    // one over a stock tile is an edit and not an accident.
+    // one over a stock tile is an edit and not an accident -- except for
+    // noWall and block, which the editor has no switch for: an entry that
+    // omits them keeps what the tile had, so renaming the sea cannot drain it.
     applyTiles() {
       if (!data || !data.tiles) return;
       for (const key in data.tiles) {
         const id = key | 0;
         const t = data.tiles[key];
         if (!id || !t) continue;
+        const was = TILE_DEFS[id];
         const def = {};
         if (t.door) def.door = true;
         if (t.glow) def.glow = true;
@@ -53,9 +56,10 @@ const CustomData = (() => {
           def.noWall = true;
           def.prop = t.prop;
           def.radius = t.radius != null ? t.radius : 0.18;
-        } else if (t.noWall) {
+        } else if (t.noWall != null ? t.noWall : (was && was.noWall && !was.prop)) {
           def.noWall = true;
         }
+        if (t.block != null ? t.block : (was && was.block)) def.block = true;
         TILE_DEFS[id] = def;
         if (t.h != null && t.h > 1) TILE_H[id] = t.h;
         else delete TILE_H[id];

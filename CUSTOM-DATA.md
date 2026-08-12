@@ -337,11 +337,15 @@ tiles: {
   `radius` (default `0.18`; the stock lamp uses `0.12`) at the cell's centre
   blocks movement. `radius` applies only with `prop`.
 - `noWall: true` *without* `prop` — the ray reads through the tile to its
-  ground texture and **nothing blocks movement**. The stock water tile pairs
-  this with an engine-level `block` flag that custom entries cannot set, so:
-  **do not write an entry for tile 27 (WATER)** — replacing its definition
-  would make the sea walkable. Custom see-through tiles are decoration for
-  ground meant to be walked on.
+  ground texture, and nothing blocks movement unless `block` says otherwise.
+- `block: true` — stops your feet without stopping the ray. Paired with
+  `noWall` it is exactly the stock water tile: ground that reads as open sea
+  but cannot be walked into. Mint your own for lava, chasms, marsh.
+
+An entry that **omits** `noWall` and `block` keeps whatever the tile already
+had — the editor's TILES panel has no switch for either, so renaming WATER
+(27) there does not drain the sea. Write them explicitly (including
+`block: false`) only when you mean to change them.
 
 Custom wall ids need art: give every minted id a matching entry in
 `textures`, or there is nothing to draw. (The editor does this for you —
@@ -372,7 +376,7 @@ legend entry can stand ground `0` on it.
 | 24 | CASTLE (h 3) | | | |
 | 25 | TREE (prop) | | | |
 | 26 | LAMP POST (prop) | | | |
-| 27 | WATER (leave it be) | | | |
+| 27 | WATER (noWall + block) | | | |
 | 28 | DIRT WALL | | | |
 | 29 | MINE SUPPORT | | | |
 
