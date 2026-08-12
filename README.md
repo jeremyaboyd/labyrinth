@@ -196,6 +196,11 @@ again. REVERT ALL returns to the stock world.
 Edits to stock tiles and textures reach the dungeons too; the map itself is
 the surface world only — the floors below are always rolled from the seed.
 
+What the editor writes is plain data, documented field by field — with
+examples of every portal, quest and tile trick — in
+[CUSTOM-DATA.md](CUSTOM-DATA.md), so a world can be written or generated
+without the editor at all.
+
 ## Tech notes
 
 - Pure canvas software rendering. A cell holds a list of solid spans in z
