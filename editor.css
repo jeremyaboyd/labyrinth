@@ -106,6 +106,14 @@ fieldset label { display: block; margin: 4px 0; }
 #quests-table input[type=text] { width: 130px; }
 #quests-table input[type=number] { width: 60px; }
 #quests-table select { max-width: 160px; }
+/* the folded row where a quest giver's own words are written */
+.quest-words td { background: #101018; }
+.quest-words label { display: block; color: var(--cyan); margin: 4px 0 2px; }
+.quest-words textarea {
+  width: 100%; max-width: 640px; resize: vertical;
+  background: #0a0a10; color: inherit; border: 1px solid var(--line);
+  font: inherit; text-transform: uppercase;
+}
 
 /* ---- tiles panel ---- */
 #panel-tiles { flex-direction: column; padding: 10px; }

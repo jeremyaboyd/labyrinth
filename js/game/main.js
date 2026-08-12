@@ -136,13 +136,14 @@ function loadFloor(n, arriveAt, realm) {
     lvl = buildOverworld();
     indexWorld(lvl);
   } else if (portal && portal.kind === 'mine') {
-    lvl = buildMine(realmSeed(realm, 1), portal.name);
+    lvl = buildMine(realmSeed(realm, 1), portal.name, portal.enemies);
     lvl.isMine = true;
   } else {
     const floors = portal && portal.floors > 0 ? portal.floors : 0; // 0 = endless
     lvl = generateDungeon(n, realmSeed(realm, n), {
       crown: realm === 'castle' && n === CROWN_FLOOR,
       last: floors > 0 && n >= floors,
+      enemies: portal && portal.enemies, // a portal may dictate its population
     });
   }
   // the renderer draws stacks of slabs, not tiles: work out how tall each cell
@@ -187,6 +188,13 @@ function loadFloor(n, arriveAt, realm) {
   G.items = lvl.items.map(it => ({ ...it, bob: Math.random() * 10 }));
   // after the floor's own loot is down, lay out any quest relic it owes
   layQuestRelic(lvl, realm, n);
+  // a realm may hold a prize: the key to another portal, waiting on its
+  // deepest floor until somebody carries it out
+  if (portal && portal.prize && n === realmPrizeFloor(portal)
+      && G.portals[portal.prize] && !p.portalKeys.includes(portal.prize)) {
+    const spot = relicSpotFor(lvl);
+    G.items.push({ type: 'portalkey', portal: portal.prize, x: spot.x + 0.5, y: spot.y + 0.5, bob: Math.random() * 10 });
+  }
   // keepsakes from fetch errands lie where they were lost until found;
   // their floors are the surface or the castle descent, never other realms
   if (p.quests) {
@@ -382,6 +390,9 @@ function buildBillboards() {
       if (pr.type === 'mineframe') {
         out.push({ x: pr.x, y: pr.y, z: standZ(lvl, pr.x, pr.y),
           img: SPRITES.mineFrame[0], hFrac: 1.5, zOff: 0, glow: false });
+      } else if (pr.type === 'boat') {
+        out.push({ x: pr.x, y: pr.y, z: standZ(lvl, pr.x, pr.y),
+          img: SPRITES.boat[0], hFrac: 0.62, zOff: 0, glow: false });
       } else if (pr.type === 'tree') {
         out.push({ x: pr.x, y: pr.y, z: standZ(lvl, pr.x, pr.y), img: SPRITES.tree[pr.variant], hFrac: 1.9, zOff: 0, glow: false });
       } else {
@@ -432,6 +443,7 @@ function buildBillboards() {
     }
     else if (it.type === 'gold') out.push({ x: it.x, y: it.y, img: SPRITES.gold[0], hFrac: 0.2, zOff: 0.01, glow: false });
     else if (it.type === 'key') out.push({ x: it.x, y: it.y, img: SPRITES.key[0], hFrac: 0.24, zOff: bobZ, glow: true });
+    else if (it.type === 'portalkey') out.push({ x: it.x, y: it.y, img: SPRITES.key[0], hFrac: 0.3, zOff: 0.1 + bobZ, glow: true });
     else if (it.type === 'quest') out.push({ x: it.x, y: it.y, img: SPRITES.trinket[0], hFrac: 0.24, zOff: bobZ, glow: true });
     else if (it.type === 'relic') out.push({ x: it.x, y: it.y, img: SPRITES.trinket[0], hFrac: 0.28, zOff: 0.1 + bobZ, glow: true });
     else if (it.type === 'crown') out.push({ x: it.x, y: it.y, img: SPRITES.crown[((G.time * 3) | 0) % 2], hFrac: 0.3, zOff: 0.15 + bobZ, glow: true });

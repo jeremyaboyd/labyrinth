@@ -224,11 +224,18 @@ function buildOverworld() {
       p.exit = { x: mineB.x, y: mineB.y };
     }
   }
-  // drop portals that never landed anywhere; a mine needs both of its mouths
-  const livePortals = portals.filter(p => p.x != null && (p.kind !== 'mine' || p.exit));
+  // drop portals that never landed anywhere; a mine or a boat needs both ends
+  const livePortals = portals.filter(p =>
+    p.x != null && ((p.kind !== 'mine' && p.kind !== 'boat') || p.exit));
   const castle = livePortals.find(p => p.id === 'castle');
   if (castle) exit = { x: castle.x, y: castle.y };
-  if (!exit) throw new Error('overworld has no dungeon entrance');
+  if (!exit) {
+    // a custom world need not keep the castle: any dungeon stands in for the
+    // "exit" spot, and failing even that, the start does -- the field is only
+    // a marker on the surface, never a way anywhere by itself
+    const anyDungeon = livePortals.find(p => p.kind === 'dungeon');
+    exit = anyDungeon ? { x: anyDungeon.x, y: anyDungeon.y } : { x: def.start.x, y: def.start.y };
+  }
   // the old single-mine fields now follow the deepcut portal, wherever it is
   const deepcut = livePortals.find(p => p.id === 'deepcut');
   mineA = deepcut ? { x: deepcut.x, y: deepcut.y } : null;
@@ -273,6 +280,12 @@ function buildOverworld() {
         if (map[y * w + x] === 0) lvl.lintels[y * w + x] = 1;
       }
     }
+  }
+  // and a skiff tied up at each of a boat's two docks
+  for (const p of livePortals) {
+    if (p.kind !== 'boat') continue;
+    props.push({ type: 'boat', x: p.x + 0.5, y: p.y + 0.5 });
+    props.push({ type: 'boat', x: p.exit.x + 0.5, y: p.exit.y + 0.5 });
   }
   return lvl;
 }

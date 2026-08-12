@@ -48,8 +48,9 @@ const SaveSys = (() => {
       inv: p.inv.map(s => (s ? [s.id, s.n] : 0)),
       equip: [p.equip.weapon || 0, p.equip.armor || 0, p.equip.ammo || 0],
       quests: p.quests,
-      enemies: G.enemies.map(e => [e.type, r2(e.x), r2(e.y), Math.ceil(e.hp), e.state === 'chase' ? 1 : 0]),
-      items: G.items.map(it => [it.type, r2(it.x), r2(it.y), it.item || it.qid || 0]),
+      // a boss carries her quest id and her ward with her into the save
+      enemies: G.enemies.map(e => [e.type, r2(e.x), r2(e.y), Math.ceil(e.hp), e.state === 'chase' ? 1 : 0, e.qid || 0, e.ward || 0]),
+      items: G.items.map(it => [it.type, r2(it.x), r2(it.y), it.item || it.qid || it.portal || 0]),
       doors: Object.entries(G.level.doors).map(([k, d]) => [+k, r2(d.open), d.locked ? 1 : 0]),
       shops: (G.level.shops || []).map(s => [s.idx, s.stock.map(l => l.n)]),
       explored: encodeExplored(G.explored),
@@ -149,19 +150,23 @@ const SaveSys = (() => {
       }
     }
 
-    G.enemies = d.enemies.map(([type, x, y, hp, chase]) => {
+    G.enemies = d.enemies.filter(([type]) => ENEMY_STATS[type]).map(([type, x, y, hp, chase, qid, ward]) => {
       const e = makeEnemy(type, x, y);
       e.hp = hp;
       e.state = chase ? 'chase' : 'idle';
+      if (qid) e.qid = qid;
+      if (ward) e.ward = ward;
       return e;
     });
     G.items = d.items.map(([type, x, y, item]) => {
       // v1 stored bare 'potion' pickups; they are crimson draughts now
       if (type === 'potion') return { type: 'item', item: 'potionRed', x, y, bob: Math.random() * 10 };
       if (type === 'quest' || type === 'relic') return { type, qid: item, x, y, bob: Math.random() * 10 };
+      if (type === 'portalkey') return { type, portal: item, x, y, bob: Math.random() * 10 };
       return { type, item: item || undefined, x, y, bob: Math.random() * 10 };
     }).filter(it => (it.type !== 'item' || ITEMS[it.item])
-      && ((it.type !== 'quest' && it.type !== 'relic') || !!questDef(p, it.qid)));
+      && ((it.type !== 'quest' && it.type !== 'relic') || !!questDef(p, it.qid))
+      && (it.type !== 'portalkey' || !!G.portals[it.portal]));
     G.projectiles = [];
 
     for (const [idx, counts] of (d.shops || [])) {

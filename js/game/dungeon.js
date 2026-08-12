@@ -248,20 +248,22 @@ function generateDungeon(floorNum, seed, opts) {
     }
   }
 
-  // 10) enemies
+  // 10) enemies. A portal may dictate its realm's population outright --
+  // a storeroom of nothing but rats, a cave of nothing but skeletons --
+  // otherwise the difficulty curves decide.
   const spawns = [];
-  const ratN = BALANCE.rats(floorNum);
-  const skelN = BALANCE.skeletons(floorNum);
-  const wraithN = BALANCE.wraiths(floorNum);
+  const mix = opts.enemies || null;
+  const count = (key, curve) => (mix && mix[key] != null ? mix[key] | 0 : curve);
   const addEnemy = (type, n, minD) => {
     for (let i = 0; i < n; i++) {
       const c = freeCell(minD);
       if (c) spawns.push({ type, x: c.x + 0.5, y: c.y + 0.5 });
     }
   };
-  addEnemy('rat', ratN, 5);
-  addEnemy('skeleton', skelN, 8);
-  addEnemy('wraith', wraithN, 10);
+  addEnemy('rat', count('rat', BALANCE.rats(floorNum)), 5);
+  addEnemy('skeleton', count('skeleton', BALANCE.skeletons(floorNum)), 8);
+  addEnemy('wraith', count('wraith', BALANCE.wraiths(floorNum)), 10);
+  addEnemy('witch', count('witch', 0), 10); // only ever by request
 
   // 11) items
   const items = [];
@@ -324,8 +326,8 @@ function realmSeed(realmId, depth) {
 // One level, cut through the rock between two mouths. A dungeon like any
 // other -- a maze, its monsters, its loot -- but it is not part of any
 // descent, so it never appears in a stairwell's list of floors.
-function buildMine(seed, name) {
-  const lvl = generateDungeon(1, seed, { crown: false, last: true });
+function buildMine(seed, name, enemies) {
+  const lvl = generateDungeon(1, seed, { crown: false, last: true, enemies });
   lvl.name = name || 'THE DEEPCUT MINE';
   lvl.hasCrown = false;
 

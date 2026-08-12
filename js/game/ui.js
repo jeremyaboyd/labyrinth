@@ -143,8 +143,12 @@ function useHint() {
   const at = portalUnderFoot();
   const mine = at ? null : mineMouthUnderFoot();
   if (at) {
-    hint = portalSealed(at.portal) ? 'SEALED - A KEY IS NEEDED'
-      : 'E - ENTER ' + at.portal.name;
+    if (at.portal.kind === 'boat') {
+      hint = portalSealed(at.portal) ? 'NO PASSAGE - IT MUST BE BOOKED' : 'E - BOARD ' + at.portal.name;
+    } else {
+      hint = portalSealed(at.portal) ? 'SEALED - A KEY IS NEEDED'
+        : 'E - ENTER ' + at.portal.name;
+    }
   } else if (mine) {
     hint = 'E - ' + mine.text;
   } else {

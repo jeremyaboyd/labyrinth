@@ -97,8 +97,9 @@ function loadDraft() {
 // ---------- portal + quest bookkeeping ----------
 function allocPortalId(kind) {
   const used = new Set(ED.draft.world.portals.map(p => p.id));
+  const stem = kind === 'mine' ? 'mine' : kind === 'boat' ? 'boat' : 'delve';
   for (let i = 1; i < 100; i++) {
-    const id = (kind === 'mine' ? 'mine' : 'delve') + i;
+    const id = stem + i;
     if (!used.has(id)) return id;
   }
   return null;
@@ -109,6 +110,8 @@ function addPortal(kind) {
   if (!id) return null;
   const p = kind === 'mine'
     ? { id, kind: 'mine', name: 'THE NEW MINE', x: null, y: null, exit: null }
+    : kind === 'boat'
+    ? { id, kind: 'boat', name: 'THE FERRY', x: null, y: null, exit: null, locked: false }
     : { id, kind: 'dungeon', name: 'THE NEW DELVE', floors: 3, x: null, y: null, locked: false };
   ED.draft.world.portals.push(p);
   markDirty();

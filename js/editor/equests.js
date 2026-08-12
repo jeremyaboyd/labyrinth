@@ -34,6 +34,17 @@ function refreshQuestPanel() {
     name.onchange = () => { q.name = name.value.toUpperCase(); commit(); };
     td().append(name);
 
+    // what shape the asking takes
+    const kind = document.createElement('select');
+    for (const [v, label] of [['relic', 'FETCH'], ['slay', 'SLAY WITCH'], ['exterminate', 'CLEAR OUT']]) {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = label;
+      o.selected = (q.kind || 'relic') === v;
+      kind.append(o);
+    }
+    kind.onchange = () => { q.kind = kind.value; commit(); };
+    td().append(kind);
+
     const thing = document.createElement('input');
     thing.type = 'text';
     thing.value = q.thing || '';
@@ -41,8 +52,15 @@ function refreshQuestPanel() {
     thing.onchange = () => { q.thing = thing.value.toUpperCase(); commit(); };
     td().append(thing);
 
-    // the giver: any villager, named by index and place
+    // the giver: any villager named by index and place, or the king himself
     const giver = document.createElement('select');
+    if (world.king) {
+      const o = document.createElement('option');
+      o.value = 'king';
+      o.textContent = 'THE KING @' + world.king[0] + ',' + world.king[1];
+      o.selected = q.giver === 'king';
+      giver.append(o);
+    }
     world.villagers.forEach((v, i) => {
       const o = document.createElement('option');
       o.value = i;
@@ -50,13 +68,13 @@ function refreshQuestPanel() {
       o.selected = q.giver === i;
       giver.append(o);
     });
-    giver.onchange = () => { q.giver = giver.value | 0; commit(); };
+    giver.onchange = () => { q.giver = giver.value === 'king' ? 'king' : giver.value | 0; commit(); };
     td().append(giver);
 
-    // where the relic lies
+    // where the relic lies -- somewhere with a bottom, never a boat
     const portal = document.createElement('select');
     for (const p of world.portals) {
-      if (p.id === 'castle') continue; // the castle belongs to the crown
+      if (p.id === 'castle' || p.kind === 'boat') continue; // the castle belongs to the crown
       const o = document.createElement('option');
       o.value = p.id;
       o.textContent = p.name;
@@ -102,6 +120,14 @@ function refreshQuestPanel() {
     key.onchange = () => { q.reward = q.reward || {}; q.reward.key = key.value || undefined; commit(); };
     td().append(key);
 
+    // the giver's own words, three speeches of a few lines each
+    const words = document.createElement('button');
+    words.textContent = q.lines ? 'WORDS +' : 'WORDS';
+    words.onclick = () => {
+      wordsTr.classList.toggle('hidden');
+    };
+    td().append(words);
+
     const del = document.createElement('button');
     del.className = 'danger';
     del.textContent = 'DEL';
@@ -120,21 +146,49 @@ function refreshQuestPanel() {
     }
 
     body.append(tr);
+
+    // a second, folded row: what the giver says when offering, reminding,
+    // and paying up. One line of dialogue per line of text; empty = stock.
+    const wordsTr = document.createElement('tr');
+    wordsTr.className = 'quest-words hidden';
+    const wtd = document.createElement('td');
+    wtd.colSpan = 10;
+    for (const [key, label] of [['offer', 'THE OFFER'], ['remind', 'THE REMINDER'], ['done', 'THE PAYOFF']]) {
+      const lbl = document.createElement('label');
+      lbl.textContent = label;
+      const ta = document.createElement('textarea');
+      ta.rows = 3;
+      ta.placeholder = 'LEAVE EMPTY FOR STOCK WORDS';
+      ta.value = (q.lines && q.lines[key] || []).join('\n');
+      ta.onchange = () => {
+        const lines = ta.value.toUpperCase().split('\n').map(s => s.trim()).filter(Boolean);
+        q.lines = q.lines || {};
+        if (lines.length) q.lines[key] = lines;
+        else delete q.lines[key];
+        if (!Object.keys(q.lines).length) q.lines = null;
+        markDirty();
+        validateWorld();
+      };
+      wtd.append(lbl, ta);
+    }
+    wordsTr.append(wtd);
+    body.append(wordsTr);
   }
 }
 
 function initQuests() {
   document.getElementById('btn-add-quest').onclick = () => {
     const world = ED.draft.world;
-    const targets = world.portals.filter(p => p.id !== 'castle');
+    const targets = world.portals.filter(p => p.id !== 'castle' && p.kind !== 'boat');
     if (!targets.length) { alert('ADD A DUNGEON OR A MINE FIRST'); return; }
-    if (!world.villagers.length) { alert('THE WORLD NEEDS A VILLAGER TO ASK'); return; }
+    if (!world.villagers.length && !world.king) { alert('THE WORLD NEEDS SOMEBODY TO ASK'); return; }
     const id = allocQuestId();
     world.quests.push({
       id,
+      kind: 'relic',
       name: 'THE ERRAND ' + id.slice(1).toUpperCase(),
       thing: 'THE LOST RELIC',
-      giver: 0,
+      giver: world.villagers.length ? 0 : 'king',
       portal: targets[0].id,
       reward: { gold: 100 },
     });
